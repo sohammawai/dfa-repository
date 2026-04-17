@@ -1,0 +1,3924 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DFA Minimizer — Myhill-Nerode Visualizer</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400&family=JetBrains+Mono:wght@400;500;700&display=swap"
+    rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            apple: {
+              blue: '#0071E3', dark: '#1D1D1F', gray: '#F5F5F7', gray2: '#E8E8ED',
+              muted: '#6E6E73', border: '#D2D2D7', green: '#30D158', red: '#FF453A',
+              orange: '#FF9F0A', indigo: '#5E5CE6',
+            }
+          },
+          fontFamily: {
+            sans: ['"Plus Jakarta Sans"', 'system-ui', '-apple-system', 'sans-serif'],
+            mono: ['"JetBrains Mono"', 'monospace'],
+          },
+          animation: {
+            'fade-up': 'fadeUp 0.7s cubic-bezier(0.16,1,0.3,1) forwards',
+            'fade-in': 'fadeIn 0.4s ease forwards',
+            'tab-in': 'tabIn 0.35s cubic-bezier(0.16,1,0.3,1) forwards',
+            'toast-in': 'toastIn 0.5s cubic-bezier(0.16,1,0.3,1) forwards',
+            'slide-in': 'slideIn 0.3s cubic-bezier(0.16,1,0.3,1) forwards',
+          },
+          keyframes: {
+            fadeUp: { '0%': { opacity: '0', transform: 'translateY(20px)' }, '100%': { opacity: '1', transform: 'translateY(0)' } },
+            fadeIn: { '0%': { opacity: '0' }, '100%': { opacity: '1' } },
+            tabIn: { '0%': { opacity: '0', transform: 'translateY(10px)' }, '100%': { opacity: '1', transform: 'translateY(0)' } },
+            toastIn: { '0%': { opacity: '0', transform: 'translateX(-50%) translateY(16px)' }, '100%': { opacity: '1', transform: 'translateX(-50%) translateY(0)' } },
+            slideIn: { '0%': { opacity: '0', transform: 'translateX(20px)' }, '100%': { opacity: '1', transform: 'translateX(0)' } },
+          },
+          boxShadow: {
+            card: '0 1px 4px rgba(0,0,0,0.04), 0 4px 24px rgba(0,0,0,0.06)',
+            btn: '0 2px 8px rgba(0,113,227,0.28)',
+          }
+        }
+      }
+    }
+  </script>
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
+
+  <style>
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0
+    }
+
+    body {
+      font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+      background: #F5F5F7;
+      color: #1D1D1F;
+      overflow-x: hidden
+    }
+
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px
+    }
+
+    ::-webkit-scrollbar-track {
+      background: #F5F5F7
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: #D2D2D7;
+      border-radius: 3px
+    }
+
+    .mono-input {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.77rem;
+      background: #F5F5F7;
+      color: #1D1D1F;
+      border: 1.5px solid #D2D2D7;
+      border-radius: 10px;
+      padding: 10px 13px;
+      width: 100%;
+      outline: none;
+      transition: border-color .2s, box-shadow .2s, background .2s;
+      resize: vertical
+    }
+
+    .mono-input:focus {
+      border-color: #0071E3;
+      background: #fff;
+      box-shadow: 0 0 0 3px rgba(0, 113, 227, .1)
+    }
+
+    .dfa-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: .74rem
+    }
+
+    .dfa-table th {
+      background: #F5F5F7;
+      color: #6E6E73;
+      padding: 8px 14px;
+      text-align: center;
+      border: 1px solid #D2D2D7;
+      font-weight: 600;
+      letter-spacing: .04em
+    }
+
+    .dfa-table td {
+      padding: 7px 14px;
+      text-align: center;
+      border: 1px solid #D2D2D7;
+      color: #1D1D1F;
+      background: #fff;
+      transition: background .15s
+    }
+
+    .dfa-table tr:hover td {
+      background: #F5F5F7
+    }
+
+    .dfa-table td.cell-start {
+      color: #FF9F0A;
+      font-weight: 600
+    }
+
+    .dfa-table td.cell-accept {
+      color: #30D158;
+      font-weight: 700
+    }
+
+    .dfa-table td.cell-both {
+      color: #30D158;
+      font-weight: 700;
+      background: rgba(48, 209, 88, .05)
+    }
+
+    .mn-table {
+      border-collapse: collapse;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: .73rem;
+      margin: 0 auto
+    }
+
+    .mn-table thead th {
+      color: #6E6E73;
+      padding: 4px 0;
+      text-align: center;
+      font-weight: 600;
+      min-width: 44px
+    }
+
+    .mn-table tbody th {
+      color: #6E6E73;
+      font-weight: 600;
+      padding: 0 10px 0 0;
+      text-align: right
+    }
+
+    .mn-cell {
+      width: 44px;
+      height: 44px;
+      text-align: center;
+      vertical-align: middle;
+      border: 1px solid #D2D2D7;
+      background: #F5F5F7;
+      font-size: 1.1rem;
+      transition: background .35s cubic-bezier(.4, 0, .2, 1), color .35s, border-color .35s, transform .25s, box-shadow .25s
+    }
+
+    .mn-cell.marked {
+      color: #30D158;
+      background: #f0fdf4
+    }
+
+    .mn-cell.newly-marked {
+      color: #30D158;
+      background: #dcfce7;
+      border-color: #86efac
+    }
+
+    .mn-cell.checking {
+      color: #0071E3;
+      background: rgba(0, 113, 227, .10);
+      border-color: #0071E3;
+      border-width: 2px;
+      transform: scale(1.18);
+      box-shadow: 0 0 0 3px rgba(0, 113, 227, .18), 0 4px 16px rgba(0, 113, 227, .15);
+      z-index: 10;
+      position: relative
+    }
+
+    .mn-cell.checking-marked {
+      color: #FF9F0A;
+      background: rgba(255, 159, 10, .12);
+      border-color: #FF9F0A;
+      border-width: 2px;
+      transform: scale(1.18);
+      box-shadow: 0 0 0 3px rgba(255, 159, 10, .2), 0 4px 16px rgba(255, 159, 10, .15);
+      z-index: 10;
+      position: relative
+    }
+
+    .mn-cell.unmarked {
+      color: transparent;
+      background: #fff
+    }
+
+    .mn-cell.empty {
+      border: none;
+      background: transparent
+    }
+
+    /* Speed slider */
+    .speed-track {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 100%;
+      height: 5px;
+      border-radius: 99px;
+      background: linear-gradient(90deg, #0071E3 var(--fill, 50%), #E8E8ED var(--fill, 50%));
+      outline: none;
+      cursor: pointer
+    }
+
+    .speed-track::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: #fff;
+      border: none;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, .22), 0 0 0 1.5px rgba(0, 0, 0, .08);
+      cursor: pointer;
+      transition: transform .15s, box-shadow .15s
+    }
+
+    .speed-track::-webkit-slider-thumb:hover {
+      transform: scale(1.12);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, .28), 0 0 0 2px rgba(0, 113, 227, .25)
+    }
+
+    .speed-track::-moz-range-thumb {
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: #fff;
+      border: none;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, .22);
+      cursor: pointer
+    }
+
+    /* Explanation card */
+    @keyframes explainIn {
+      0% {
+        opacity: 0;
+        transform: translateY(6px)
+      }
+
+      100% {
+        opacity: 1;
+        transform: translateY(0)
+      }
+    }
+
+    .explain-card {
+      animation: explainIn .28s cubic-bezier(.16, 1, .3, 1) forwards
+    }
+
+    /* Progress bar */
+    @keyframes progFill {
+      from {
+        width: 0
+      }
+
+      to {
+        width: var(--prog-w)
+      }
+    }
+
+    .prog-fill {
+      transition: width .35s cubic-bezier(.4, 0, .2, 1)
+    }
+
+    /* Play button glow */
+    @keyframes playGlow {
+
+      0%,
+      100% {
+        box-shadow: 0 2px 8px rgba(0, 113, 227, .3)
+      }
+
+      50% {
+        box-shadow: 0 4px 24px rgba(0, 113, 227, .55)
+      }
+    }
+
+    .play-btn-active {
+      animation: playGlow 1.6s ease-in-out infinite
+    }
+
+    .log-entry {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: .7rem;
+      line-height: 1.6;
+      padding: 8px 12px;
+      background: #F5F5F7;
+      border-radius: 8px;
+      border-left: 3px solid #D2D2D7;
+      color: #6E6E73;
+      transition: all .3s
+    }
+
+    .log-entry.active-type {
+      border-left-color: #0071E3;
+      color: #1D1D1F;
+      background: rgba(0, 113, 227, .04)
+    }
+
+    .log-entry.split-type {
+      border-left-color: #FF9F0A;
+      color: #c47a00;
+      background: rgba(255, 159, 10, .04)
+    }
+
+    .log-entry.done-type {
+      border-left-color: #30D158;
+      color: #1a8a3a;
+      background: rgba(48, 209, 88, .04)
+    }
+
+    .sim-node {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: .78rem;
+      background: #F5F5F7;
+      border: 1.5px solid #D2D2D7;
+      border-radius: 8px;
+      padding: 5px 12px;
+      color: #1D1D1F;
+      transition: all .25s
+    }
+
+    .sim-node.active {
+      background: rgba(0, 113, 227, .08);
+      border-color: #0071E3;
+      color: #0071E3;
+      box-shadow: 0 0 0 3px rgba(0, 113, 227, .08)
+    }
+
+    .sim-node.dead-node {
+      background: rgba(255, 69, 58, .07);
+      border-color: #FF453A;
+      color: #FF453A
+    }
+
+    .sim-result {
+      margin-top: 14px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: .9rem;
+      font-weight: 700;
+      padding: 10px 18px;
+      border-radius: 10px;
+      display: inline-block
+    }
+
+    .sim-result.accepted {
+      background: rgba(48, 209, 88, .1);
+      color: #1a8a3a;
+      border: 1.5px solid #30D158
+    }
+
+    .sim-result.rejected {
+      background: rgba(255, 69, 58, .08);
+      color: #FF453A;
+      border: 1.5px solid #FF453A
+    }
+
+    .stat-box {
+      background: #F5F5F7;
+      border: 1px solid #D2D2D7;
+      border-radius: 14px;
+      padding: 16px 18px;
+      text-align: center
+    }
+
+    .stat-val {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 1.7rem;
+      font-weight: 700;
+      color: #0071E3;
+      display: block
+    }
+
+    .stat-label {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: .6rem;
+      color: #6E6E73;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      margin-top: 4px
+    }
+
+    .stat-box.reduction .stat-val {
+      color: #30D158
+    }
+
+    .stat-box.no-reduction .stat-val {
+      color: #FF9F0A
+    }
+
+    .mn-equiv-class {
+      background: rgba(0, 113, 227, .07);
+      border: 1px solid rgba(0, 113, 227, .25);
+      border-radius: 8px;
+      padding: 4px 12px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: .7rem;
+      color: #0071E3
+    }
+
+    .error-box {
+      background: rgba(255, 69, 58, .06);
+      border: 1px solid rgba(255, 69, 58, .25);
+      border-radius: 10px;
+      padding: 10px 14px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: .72rem;
+      color: #FF453A;
+      white-space: pre-wrap;
+      line-height: 1.6
+    }
+
+    .gradient-text {
+      background: linear-gradient(135deg, #1D1D1F 0%, #3a3a3c 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text
+    }
+
+    .hero-gradient {
+      background: radial-gradient(ellipse 80% 60% at 50% -10%, rgba(0, 113, 227, .1) 0%, transparent 70%)
+    }
+
+    .feature-card {
+      will-change: transform;
+      transition: box-shadow .3s, transform .3s
+    }
+
+    .feature-card:hover {
+      box-shadow: 0 8px 40px rgba(0, 0, 0, .1);
+      transform: translateY(-3px)
+    }
+
+    .glass-header {
+      background: rgba(255, 255, 255, .85);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px)
+    }
+
+    /* Glass sidebar */
+    .glass-sidebar {
+      background: rgba(255, 255, 255, .72);
+      backdrop-filter: blur(24px);
+      -webkit-backdrop-filter: blur(24px);
+      border: 1px solid rgba(255, 255, 255, .9);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, .08), inset 0 1px 0 rgba(255, 255, 255, .8)
+    }
+
+    /* Status light */
+    @keyframes pulse-green {
+
+      0%,
+      100% {
+        box-shadow: 0 0 0 0 rgba(48, 209, 88, .5)
+      }
+
+      50% {
+        box-shadow: 0 0 0 5px rgba(48, 209, 88, 0)
+      }
+    }
+
+    @keyframes pulse-orange {
+
+      0%,
+      100% {
+        box-shadow: 0 0 0 0 rgba(255, 159, 10, .5)
+      }
+
+      50% {
+        box-shadow: 0 0 0 5px rgba(255, 159, 10, 0)
+      }
+    }
+
+    @keyframes pulse-red {
+
+      0%,
+      100% {
+        box-shadow: 0 0 0 0 rgba(255, 69, 58, .5)
+      }
+
+      50% {
+        box-shadow: 0 0 0 5px rgba(255, 69, 58, 0)
+      }
+    }
+
+    .light-green {
+      animation: pulse-green 2s ease-in-out infinite;
+      background: #30D158
+    }
+
+    .light-orange {
+      animation: pulse-orange 2s ease-in-out infinite;
+      background: #FF9F0A
+    }
+
+    .light-red {
+      animation: pulse-red 2s ease-in-out infinite;
+      background: #FF453A
+    }
+
+    .light-gray {
+      background: #D2D2D7
+    }
+
+    /* Export modal */
+    .export-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, .45);
+      backdrop-filter: blur(4px);
+      z-index: 1000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px
+    }
+
+    .export-modal {
+      background: #fff;
+      border-radius: 20px;
+      width: 100%;
+      max-width: 720px;
+      max-height: 85vh;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 24px 80px rgba(0, 0, 0, .25)
+    }
+
+    .export-tab-btn {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: .72rem;
+      padding: 10px 18px;
+      border: none;
+      background: none;
+      cursor: pointer;
+      color: #6E6E73;
+      border-bottom: 2px solid transparent;
+      transition: all .2s;
+      white-space: nowrap
+    }
+
+    .export-tab-btn.active {
+      color: #0071E3;
+      border-bottom-color: #0071E3;
+      font-weight: 600
+    }
+
+    .code-block {
+      background: #1D1D1F;
+      color: #d4d4d4;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: .72rem;
+      padding: 20px;
+      border-radius: 0;
+      overflow: auto;
+      white-space: pre;
+      line-height: 1.75;
+      flex: 1;
+      min-height: 0
+    }
+
+    .code-block .kw {
+      color: #c792ea
+    }
+
+    .code-block .st {
+      color: #c3e88d
+    }
+
+    .code-block .cm {
+      color: #546e7a;
+      font-style: italic
+    }
+
+    .code-block .nb {
+      color: #82aaff
+    }
+
+    .code-block .fn {
+      color: #82aaff
+    }
+
+    .code-block .nu {
+      color: #f78c6c
+    }
+
+    /* Live preview mini card */
+    .live-preview {
+      background: linear-gradient(135deg, rgba(0, 113, 227, .05) 0%, rgba(48, 209, 88, .05) 100%);
+      border: 1.5px solid rgba(0, 113, 227, .2);
+      border-radius: 14px;
+      padding: 14px 16px;
+      transition: all .3s
+    }
+
+    /* Force graph */
+    .force-graph-container {
+      border-radius: 12px;
+      border: 1px solid #D2D2D7;
+      overflow: hidden;
+      background: #fff;
+      cursor: grab;
+      position: relative
+    }
+
+    .force-graph-container:active {
+      cursor: grabbing
+    }
+
+    /* ── DFA Diagram Giggle Physics CSS ─────────────────────────── */
+    .force-graph-container g.node {
+      transform-box: fill-box;
+      transform-origin: center;
+    }
+
+    .force-graph-container g.node circle {
+      transform-box: fill-box;
+      transform-origin: center;
+      will-change: r;
+    }
+
+    /* Blue glow on hover via drop-shadow */
+    .force-graph-container circle.main-circle {
+      filter: drop-shadow(0 0 0px rgba(0,113,227,0));
+      transition: filter 0.35s ease;
+    }
+
+    .force-graph-container g.node:hover circle.main-circle {
+      filter: drop-shadow(0 0 9px rgba(0,113,227,0.38));
+    }
+
+    /* Dual sim */
+    .sim-track-card {
+      background: #fff;
+      border-radius: 18px;
+      padding: 18px;
+      box-shadow: 0 1px 4px rgba(0, 0, 0, .04), 0 4px 24px rgba(0, 0, 0, .06);
+      border: 1px solid #D2D2D7
+    }
+
+    /* State step chip */
+    @keyframes chipPulse {
+
+      0%,
+      100% {
+        box-shadow: 0 0 0 0 rgba(0, 113, 227, .3)
+      }
+
+      50% {
+        box-shadow: 0 0 0 6px rgba(0, 113, 227, 0)
+      }
+    }
+
+    .chip-active {
+      animation: chipPulse 1s ease-in-out infinite
+    }
+
+    @keyframes pulse {
+
+      0%,
+      100% {
+        opacity: 1
+      }
+
+      50% {
+        opacity: .45
+      }
+    }
+
+    @media(max-width:900px) {
+      .app-body {
+        flex-direction: column !important
+      }
+
+      .glass-sidebar {
+        width: 100% !important;
+        position: static !important
+      }
+
+      .grid-2col {
+        grid-template-columns: 1fr !important
+      }
+
+      .grid-builder {
+        grid-template-columns: 1fr !important
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel">
+    gsap.registerPlugin(ScrollTrigger);
+    const { useState, useEffect, useRef, useCallback, useMemo } = React;
+
+    const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+    /* ═══════════════════════════════
+       DFA EXAMPLES
+    ═══════════════════════════════ */
+    const DFA_EXAMPLES = [
+      {
+        name: 'Ends with 0  [4→2 states]', desc: 'Accepts binary strings ending in 0.',
+        states: 'q0,q1,q2,q3', alpha: '0,1', start: 'q0', accept: 'q2,q3',
+        trans: 'q0,0->q2\nq0,1->q1\nq1,0->q3\nq1,1->q0\nq2,0->q3\nq2,1->q1\nq3,0->q2\nq3,1->q0'
+      },
+      {
+        name: 'Even 0s — redundant  [4→2 states]', desc: 'Even-zero counter with duplicated state pairs.',
+        states: 'q0,q1,q2,q3', alpha: '0,1', start: 'q0', accept: 'q0,q1',
+        trans: 'q0,0->q2\nq0,1->q1\nq1,0->q3\nq1,1->q0\nq2,0->q0\nq2,1->q3\nq3,0->q1\nq3,1->q2'
+      },
+      {
+        name: 'Even-length strings  [4→2 states]', desc: 'Accepts strings over {0,1} with even length.',
+        states: 'q0,q1,q2,q3', alpha: '0,1', start: 'q0', accept: 'q0,q1',
+        trans: 'q0,0->q2\nq0,1->q3\nq1,0->q3\nq1,1->q2\nq2,0->q0\nq2,1->q1\nq3,0->q1\nq3,1->q0'
+      },
+      {
+        name: 'Classic minimisation  [6→3 states]', desc: 'Textbook 6-state DFA.',
+        states: 'q0,q1,q2,q3,q4,q5', alpha: '0,1', start: 'q0', accept: 'q2,q4',
+        trans: 'q0,0->q1\nq0,1->q2\nq1,0->q3\nq1,1->q4\nq2,0->q4\nq2,1->q3\nq3,0->q5\nq3,1->q5\nq4,0->q5\nq4,1->q5\nq5,0->q5\nq5,1->q5'
+      },
+      {
+        name: 'Length ÷ 3  [6→3 states]', desc: 'Counts string length mod 3 over {a,b}.',
+        states: 'q0,q1,q2,q3,q4,q5', alpha: 'a,b', start: 'q0', accept: 'q0,q1',
+        trans: 'q0,a->q2\nq0,b->q3\nq1,a->q3\nq1,b->q2\nq2,a->q4\nq2,b->q5\nq3,a->q5\nq3,b->q4\nq4,a->q0\nq4,b->q1\nq5,a->q1\nq5,b->q0'
+      },
+      {
+        name: 'Length ÷ 4  [8→4 states]', desc: 'Counts string length mod 4 over {0,1}.',
+        states: 'q0,q1,q2,q3,q4,q5,q6,q7', alpha: '0,1', start: 'q0', accept: 'q0,q1',
+        trans: 'q0,0->q2\nq0,1->q3\nq1,0->q3\nq1,1->q2\nq2,0->q4\nq2,1->q5\nq3,0->q5\nq3,1->q4\nq4,0->q6\nq4,1->q7\nq5,0->q7\nq5,1->q6\nq6,0->q0\nq6,1->q1\nq7,0->q1\nq7,1->q0'
+      },
+    ];
+
+    /* ═══════════════════════════════
+       DFA LOGIC
+    ═══════════════════════════════ */
+    function parseDFA(rs, ra, rst, racc, rt) {
+      const states = rs.split(',').map(s => s.trim()).filter(Boolean);
+      const alphabet = ra.split(',').map(s => s.trim()).filter(Boolean);
+      const start = rst.trim();
+      const accept = racc.split(',').map(s => s.trim()).filter(Boolean);
+      const errors = [];
+      if (!states.length) errors.push('States list is empty.');
+      if (!alphabet.length) errors.push('Alphabet is empty.');
+      if (!start) errors.push('Start state is missing.');
+      if (start && !states.includes(start)) errors.push(`Start state "${start}" not in states.`);
+      accept.forEach(a => { if (!states.includes(a)) errors.push(`Accept state "${a}" not in states.`); });
+      const delta = {};
+      states.forEach(s => { delta[s] = {}; });
+      rt.split('\n').forEach((line, i) => {
+        line = line.trim(); if (!line) return;
+        const m = line.match(/^(.+),(.+)->(.*)$/) || line.match(/^(.+),(.+)→(.*)$/);
+        if (!m) { errors.push(`Line ${i + 1}: bad format "${line}" — use state,symbol->next`); return; }
+        const [, from, sym, to] = m.map(x => x.trim());
+        if (!states.includes(from)) { errors.push(`Line ${i + 1}: unknown state "${from}"`); return; }
+        if (!alphabet.includes(sym)) { errors.push(`Line ${i + 1}: symbol "${sym}" not in alphabet`); return; }
+        if (!to) { errors.push(`Line ${i + 1}: missing destination state for δ(${from},${sym})`); return; }
+        if (!states.includes(to)) { errors.push(`Line ${i + 1}: unknown state "${to}"`); return; }
+        delta[from][sym] = to;
+      });
+      states.forEach(s => alphabet.forEach(sym => { if (!delta[s][sym]) errors.push(`Missing: δ(${s},${sym})`); }));
+      if (errors.length) throw new Error(errors.join('\n'));
+      return { states, alphabet, start, accept: new Set(accept), delta, trans(s, sym) { return (this.delta[s] || {})[sym] || null; } };
+    }
+
+    function minimizeDFA(dfa) {
+      const { states } = dfa, n = states.length;
+      const steps = [];
+      const pairKey = (a, b) => { const ia = states.indexOf(a), ib = states.indexOf(b); return ia < ib ? `${ia},${ib}` : `${ib},${ia}`; };
+      const initMarked = {};
+      for (let i = 0; i < n; i++) for (let j = i + 1; j < n; j++) initMarked[`${i},${j}`] = false;
+      steps.push({ type: 'init', marked: { ...initMarked }, newlyMarked: [], logMsg: `Initialize: ${Object.keys(initMarked).length} pairs — all unmarked.`, logType: 'active', round: 0 });
+      const m1 = { ...initMarked }, baseMarked = [];
+      for (let i = 0; i < n; i++) for (let j = i + 1; j < n; j++)
+        if (dfa.accept.has(states[i]) !== dfa.accept.has(states[j])) { m1[`${i},${j}`] = true; baseMarked.push(`${i},${j}`); }
+      steps.push({
+        type: 'base', marked: { ...m1 }, newlyMarked: baseMarked,
+        logMsg: `Base case — accept vs non-accept: ${baseMarked.length ? baseMarked.map(k => { const [i, j] = k.split(','); return `(${states[i]},${states[j]})` }).join(', ') : 'none'}`,
+        logType: 'split', round: 1
+      });
+      let cur = { ...m1 }, roundNum = 2, changed = true;
+      while (changed) {
+        changed = false; const next = { ...cur }, newlyMarked = [];
+        for (let i = 0; i < n; i++) for (let j = i + 1; j < n; j++) {
+          const key = `${i},${j}`; if (cur[key]) continue;
+          const si = states[i], sj = states[j];
+          for (const sym of dfa.alphabet) {
+            const ti = dfa.trans(si, sym), tj = dfa.trans(sj, sym);
+            if (!ti || !tj || ti === tj) continue;
+            if (cur[pairKey(ti, tj)]) { next[key] = true; newlyMarked.push(key); changed = true; break; }
+          }
+        }
+        cur = next;
+        if (changed) steps.push({
+          type: 'iter', marked: { ...cur }, newlyMarked: [...newlyMarked],
+          logMsg: `Round ${roundNum}: marked ${newlyMarked.length} new pair(s): ${newlyMarked.map(k => { const [i, j] = k.split(','); return `(${states[i]},${states[j]})` }).join(', ')}`,
+          logType: 'split', round: roundNum
+        });
+        else steps.push({ type: 'done', marked: { ...cur }, newlyMarked: [], logMsg: `Round ${roundNum}: no new pairs — algorithm complete!`, logType: 'done', round: roundNum });
+        roundNum++;
+      }
+      const parent = {};
+      states.forEach(s => parent[s] = s);
+      const find = s => parent[s] === s ? s : (parent[s] = find(parent[s]));
+      const union = (a, b) => { parent[find(a)] = find(b); };
+      for (let i = 0; i < n; i++) for (let j = i + 1; j < n; j++) if (!cur[`${i},${j}`]) union(states[i], states[j]);
+      const classMap = {};
+      states.forEach(s => { const r = find(s); if (!classMap[r]) classMap[r] = []; classMap[r].push(s); });
+      const finalPartitions = Object.values(classMap);
+      const rep = {};
+      finalPartitions.forEach((g, i) => g.forEach(s => { rep[s] = `M${i}`; }));
+      const minStates = finalPartitions.map((_, i) => `M${i}`);
+      const minAccept = new Set();
+      finalPartitions.forEach((g, i) => { if (g.some(s => dfa.accept.has(s))) minAccept.add(`M${i}`); });
+      const minDelta = {};
+      minStates.forEach(ms => { minDelta[ms] = {}; });
+      finalPartitions.forEach((g, i) => { const s = g[0]; dfa.alphabet.forEach(sym => { const nx = dfa.trans(s, sym); if (nx) minDelta[`M${i}`][sym] = rep[nx]; }); });
+      const labelMap = {};
+      finalPartitions.forEach((g, i) => { labelMap[`M${i}`] = g; });
+      const minDFA = { states: minStates, alphabet: dfa.alphabet, start: rep[dfa.start], accept: minAccept, delta: minDelta, labelMap, trans(s, sym) { return (this.delta[s] || {})[sym] || null; } };
+      return { steps, finalPartitions, minDFA };
+    }
+
+    function simulateDFA(dfa, input) {
+      const chars = input === '' ? [] : input.split('');
+      let state = dfa.start;
+      const path = [{ state, sym: null }], log = [];
+      for (let i = 0; i < chars.length; i++) {
+        const sym = chars[i], next = dfa.trans(state, sym);
+        if (!next) { log.push(`δ(${state}, ${sym}) = ∅ ← undefined (rejected)`); path.push({ state: null, sym, undefined: true }); return { path, accepted: false, log, stuck: true }; }
+        log.push(`δ(${state}, ${sym}) = ${next}`); state = next; path.push({ state, sym });
+      }
+      const accepted = dfa.accept.has ? dfa.accept.has(state) : [...dfa.accept].includes(state);
+      log.push(`Final: ${state} — ${accepted ? '✓ ACCEPTED' : '✗ REJECTED'}`);
+      return { path, accepted, log, stuck: false };
+    }
+
+    /* ═══════════════════════════════
+       FORCE GRAPH (D3)
+    ═══════════════════════════════ */
+    const GROUP_COLORS = ['#0071E3', '#30D158', '#FF9F0A', '#5E5CE6', '#FF453A', '#32ADE6', '#BF5AF2'];
+
+    function ForceGraph({ dfa, highlightStates = new Set(), groupColorMap = null, height = 360, meltGroups = null, onMeltDone }) {
+      const containerRef = useRef(null);
+      const simRef = useRef(null);
+      const nodesRef = useRef([]);
+      const nodeByIdRef = useRef({});
+      const svgRef = useRef(null);
+
+      // Re-build when dfa changes
+      useEffect(() => {
+        if (!dfa || !containerRef.current) return;
+        const el = containerRef.current;
+        // Cleanup old SVG
+        d3.select(el).selectAll('svg').remove();
+        if (simRef.current) simRef.current.stop();
+
+        const W = el.clientWidth || 600;
+        const H = height;
+        const R = 24;
+
+        // Calculate BFS depths for directional layout
+        const depth = { [dfa.start]: 0 };
+        const queue = [dfa.start];
+        while (queue.length) {
+          const curr = queue.shift();
+          dfa.alphabet.forEach(sym => {
+            const to = dfa.trans ? dfa.trans(curr, sym) : null;
+            if (to && depth[to] === undefined) {
+              depth[to] = depth[curr] + 1;
+              queue.push(to);
+            }
+          });
+        }
+        let maxDepth = 0;
+        dfa.states.forEach(id => {
+          if (depth[id] === undefined) depth[id] = 0; // fallback for unreachable states
+          if (depth[id] > maxDepth) maxDepth = depth[id];
+        });
+
+        // Initialize nodes with horizontal spacing
+        const nodes = dfa.states.map((id, i) => {
+          const d = depth[id];
+          return {
+            id,
+            x: maxDepth > 0 ? 80 + (W - 160) * (d / maxDepth) : W / 2,
+            y: H / 2 + (Math.random() - 0.5) * 40 // slight vertical scatter
+          };
+        });
+
+        const nodeById = {};
+        nodes.forEach(n => { nodeById[n.id] = n; });
+        nodesRef.current = nodes;
+        nodeByIdRef.current = nodeById;
+
+        // Build edges
+        const edgeMap = {};
+        dfa.states.forEach(from => {
+          dfa.alphabet.forEach(sym => {
+            const to = dfa.trans ? dfa.trans(from, sym) : null;
+            if (!to) return;
+            const key = from === to ? `__self__${from}` : `${from}→${to}`;
+            if (!edgeMap[key]) edgeMap[key] = { from, to, syms: [], isSelf: from === to };
+            edgeMap[key].syms.push(sym);
+          });
+        });
+        const allEdges = Object.values(edgeMap);
+        const bidirSet = new Set();
+        allEdges.forEach(e => { if (!e.isSelf && edgeMap[`${e.to}→${e.from}`]) bidirSet.add(`${e.from}→${e.to}`); });
+
+        // SVG
+        const svg = d3.select(el).append('svg')
+          .attr('width', '100%').attr('height', H)
+          .style('display', 'block').style('background', '#fff');
+        svgRef.current = svg;
+
+        // Defs: arrow markers + glow filter
+        const defs = svg.append('defs');
+        ['default', 'active', 'accept'].forEach(t => {
+          const color = t === 'active' ? '#0071E3' : t === 'accept' ? '#30D158' : '#9CA3AF';
+          defs.append('marker').attr('id', `arrow-${t}`)
+            .attr('viewBox', '0 -5 10 10').attr('refX', 10).attr('refY', 0)
+            .attr('markerWidth', 6).attr('markerHeight', 6).attr('orient', 'auto')
+            .append('path').attr('d', 'M0,-5L10,0L0,5').attr('fill', color);
+        });
+        defs.append('filter').attr('id', 'glow-blue')
+          .append('feGaussianBlur').attr('stdDeviation', 4).attr('result', 'coloredBlur');
+
+        const g = svg.append('g');
+
+        // Zoom + pan
+        svg.call(d3.zoom().scaleExtent([0.3, 3]).on('zoom', e => g.attr('transform', e.transform)));
+
+        // Start arrow
+        const startG = g.append('g').attr('class', 'start-arrow-g');
+        startG.append('line').attr('class', 'start-line')
+          .attr('stroke', '#6E6E73').attr('stroke-width', 1.5)
+          .attr('marker-end', 'url(#arrow-default)');
+
+        // Edge groups
+        const edgeGs = g.append('g').attr('class', 'edges').selectAll('g.edge')
+          .data(allEdges).enter().append('g').attr('class', 'edge');
+        edgeGs.append('path').attr('class', 'edge-path').attr('fill', 'none')
+          .attr('stroke', '#C7C7CC').attr('stroke-width', 1.5)
+          .attr('marker-end', 'url(#arrow-default)');
+        edgeGs.append('rect').attr('class', 'edge-label-bg')
+          .attr('fill', 'rgba(255,255,255,0.9)').attr('rx', 3).attr('ry', 3);
+        edgeGs.append('text').attr('class', 'edge-label')
+          .text(d => d.syms.join(','))
+          .attr('font-family', 'JetBrains Mono,monospace').attr('font-size', 10)
+          .attr('font-weight', 'bold').attr('fill', '#6E6E73')
+          .attr('text-anchor', 'middle').attr('dominant-baseline', 'middle');
+
+        // Node groups
+        const nodeGs = g.append('g').attr('class', 'nodes').selectAll('g.node')
+          .data(nodes).enter().append('g').attr('class', 'node').attr('id', d => `nd-${d.id}`)
+          .style('cursor', 'grab');
+
+        nodeGs.each(function (d) {
+          const ng = d3.select(this);
+          const isAccept = dfa.accept.has ? dfa.accept.has(d.id) : [...dfa.accept].includes(d.id);
+          if (isAccept) ng.append('circle').attr('class', 'accept-ring').attr('r', R + 6)
+            .attr('fill', 'none').attr('stroke', '#1D1D1F').attr('stroke-width', 1.5);
+          ng.append('circle').attr('class', 'main-circle').attr('r', R)
+            .attr('fill', '#fff').attr('stroke', '#1D1D1F').attr('stroke-width', 2);
+          ng.append('text').text(d.id)
+            .attr('font-family', 'JetBrains Mono,monospace').attr('font-size', 11)
+            .attr('font-weight', 'bold').attr('fill', '#1D1D1F')
+            .attr('text-anchor', 'middle').attr('dominant-baseline', 'middle');
+        });
+
+        let internalTick;
+
+        // ── Giggle Physics: Hover ──────────────────────────────────
+        nodeGs
+          .on('mouseenter', function (e, d) {
+            const ng = d3.select(this);
+            ng.style('cursor', 'grab');
+            // Spring-expand the circle
+            ng.select('.main-circle')
+              .transition().duration(0).attr('r', R)
+              .transition().duration(420)
+              .ease(d3.easeElasticOut.amplitude(1.35).period(0.38))
+              .attr('r', R * 1.22);
+            ng.select('.accept-ring')
+              .transition().duration(0).attr('r', R + 6)
+              .transition().duration(420)
+              .ease(d3.easeElasticOut.amplitude(1.35).period(0.38))
+              .attr('r', (R + 6) * 1.22);
+            // Tilt the label slightly
+            ng.select('text')
+              .transition().duration(200).ease(d3.easeBackOut)
+              .attr('transform', 'rotate(7) scale(1.08)');
+          })
+          .on('mouseleave', function (e, d) {
+            const ng = d3.select(this);
+            ng.select('.main-circle')
+              .transition().duration(500)
+              .ease(d3.easeElasticOut.amplitude(1.1).period(0.42))
+              .attr('r', R);
+            ng.select('.accept-ring')
+              .transition().duration(500)
+              .ease(d3.easeElasticOut.amplitude(1.1).period(0.42))
+              .attr('r', R + 6);
+            ng.select('text')
+              .transition().duration(350).ease(d3.easeElasticOut.amplitude(1.2).period(0.4))
+              .attr('transform', 'rotate(0) scale(1)');
+          })
+          // ── Giggle Physics: Click ripple ─────────────────────────
+          .on('click', function (e, d) {
+            const ng = d3.select(this);
+            // Squish
+            ng.select('.main-circle')
+              .transition().duration(70).attr('r', R * 0.82)
+              .transition().duration(550)
+              .ease(d3.easeElasticOut.amplitude(1.45).period(0.36))
+              .attr('r', R);
+            // Expanding ripple ring
+            const ripple = ng.insert('circle', '.main-circle')
+              .attr('r', R).attr('fill', 'none')
+              .attr('stroke', '#0071E3').attr('stroke-width', 2.5)
+              .attr('opacity', 0.75);
+            ripple.transition().duration(650).ease(d3.easeQuadOut)
+              .attr('r', R * 2.8).attr('opacity', 0)
+              .on('end', function () { d3.select(this).remove(); });
+          });
+
+        // ── Giggle Physics: Spring Drag ────────────────────────────
+        nodeGs.call(d3.drag()
+          .on('start', (e, d) => {
+            d.fx = d.x; d.fy = d.y;
+            // Squish on grab
+            d3.select(`#nd-${d.id}`).select('.main-circle')
+              .transition().duration(120).ease(d3.easeBackIn.overshoot(2))
+              .attr('r', R * 0.86);
+          })
+          .on('drag', (e, d) => {
+            d.fx = e.x; d.fy = e.y;
+            d.x = e.x; d.y = e.y;
+            if (internalTick) internalTick();
+          })
+          .on('end', (e, d) => {
+            d.fx = d.x; d.fy = d.y;
+            // Spring release on drop
+            d3.select(`#nd-${d.id}`).select('.main-circle')
+              .transition().duration(0).attr('r', R * 0.86)
+              .transition().duration(650)
+              .ease(d3.easeElasticOut.amplitude(1.5).period(0.38))
+              .attr('r', R);
+            // Drop ripple
+            const dropNg = d3.select(`#nd-${d.id}`);
+            const dropRipple = dropNg.insert('circle', '.main-circle')
+              .attr('r', R * 0.86).attr('fill', 'none')
+              .attr('stroke', '#5E5CE6').attr('stroke-width', 2)
+              .attr('opacity', 0.6);
+            dropRipple.transition().duration(500).ease(d3.easeQuadOut)
+              .attr('r', R * 2.2).attr('opacity', 0)
+              .on('end', function () { d3.select(this).remove(); });
+          })
+        );
+
+        // Force links (no self-loops)
+        const simLinks = allEdges.filter(e => !e.isSelf).map(e => ({ source: e.from, target: e.to }));
+
+        const sim = d3.forceSimulation(nodes)
+          .force('link', d3.forceLink(simLinks).id(d => d.id).distance(80).strength(0.2))
+          .force('charge', d3.forceManyBody().strength(-600))
+          .force('y', d3.forceY(H / 2).strength(0.08)) // soft center pulling
+          .force('x', d3.forceX(d => maxDepth > 0 ? 100 + (W - 200) * (depth[d.id] / maxDepth) : W / 2).strength(0.4))
+          .force('collide', d3.forceCollide(60).strength(1))
+          .on('tick', () => {
+            if (internalTick) internalTick();
+          });
+
+        // Pre-compute 200 ticks to skip the bouncing animation entirely
+        sim.alpha(1);
+        for (let i = 0; i < 200; ++i) sim.tick();
+        sim.stop(); // Keep it completely static
+
+        internalTick = () => {
+          // Clamp to bounds
+          nodes.forEach(n => {
+            n.x = Math.max(55, Math.min(W - 55, n.x));
+            n.y = Math.max(55, Math.min(H - 55, n.y));
+          });
+
+          // Update nodes
+          nodeGs.attr('transform', d => `translate(${d.x},${d.y})`);
+
+          // Update start arrow
+          const sn = nodeById[dfa.start];
+          if (sn) {
+            startG.select('.start-line')
+              .attr('x1', sn.x - R - 38).attr('y1', sn.y)
+              .attr('x2', sn.x - R - 2).attr('y2', sn.y);
+          }
+
+          // Update edges
+          edgeGs.each(function (d) {
+            const eg = d3.select(this);
+            const src = nodeById[d.from], tgt = nodeById[d.to];
+            if (!src || !tgt) return;
+
+            let pathD, lx, ly;
+            if (d.isSelf) {
+              const x = src.x, y = src.y, yr = y - R;
+              pathD = `M ${x - 10},${yr} C ${x - 65},${y - 88} ${x + 65},${y - 88} ${x + 10},${yr}`;
+              lx = x; ly = y - R - 52;
+            } else {
+              const dx = tgt.x - src.x, dy = tgt.y - src.y;
+              const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+              const ux = dx / dist, uy = dy / dist;
+              const isBidir = bidirSet.has(`${d.from}→${d.to}`);
+              if (isBidir) {
+                const perp = 36, px = -uy * perp, py = ux * perp;
+                const mx = (src.x + tgt.x) / 2 + px, my = (src.y + tgt.y) / 2 + py;
+                const da = Math.sqrt((mx - src.x) ** 2 + (my - src.y) ** 2) || 1;
+                const db = Math.sqrt((mx - tgt.x) ** 2 + (my - tgt.y) ** 2) || 1;
+                const sx2 = src.x + R * (mx - src.x) / da, sy2 = src.y + R * (my - src.y) / da;
+                const ex2 = tgt.x + R * (mx - tgt.x) / db, ey2 = tgt.y + R * (my - tgt.y) / db;
+                pathD = `M ${sx2},${sy2} Q ${mx},${my} ${ex2},${ey2}`;
+                lx = mx + px * 0.3; ly = my + py * 0.3;
+              } else {
+                const sx2 = src.x + R * ux, sy2 = src.y + R * uy;
+                const ex2 = tgt.x - R * ux, ey2 = tgt.y - R * uy;
+                pathD = `M ${sx2},${sy2} L ${ex2},${ey2}`;
+                lx = (sx2 + ex2) / 2 - uy * 14; ly = (sy2 + ey2) / 2 + ux * 14;
+              }
+            }
+            eg.select('.edge-path').attr('d', pathD);
+            const lw = d.syms.join(',').length * 7 + 4;
+            eg.select('.edge-label').attr('x', lx).attr('y', ly);
+            eg.select('.edge-label-bg').attr('x', lx - lw / 2 - 3).attr('y', ly - 8).attr('width', lw + 6).attr('height', 16);
+          });
+        };
+
+        // Expose tick logic to parent animations
+        containerRef.current._tickDOM = internalTick;
+
+        // Execute one manual draw step to cast the pre-computed headless state into the DOM!
+        internalTick();
+
+        // ── Giggle Physics: Staggered Spring Entrance ──────────────
+        nodeGs.each(function (d, i) {
+          const ng = d3.select(this);
+          // Circles pop in from zero
+          ng.select('.main-circle').attr('r', 0)
+            .transition().delay(i * 55).duration(700)
+            .ease(d3.easeElasticOut.amplitude(1.3).period(0.42))
+            .attr('r', R);
+          ng.select('.accept-ring').attr('r', 0)
+            .transition().delay(i * 55).duration(700)
+            .ease(d3.easeElasticOut.amplitude(1.3).period(0.42))
+            .attr('r', R + 6);
+          // Label fades in after circle
+          ng.select('text').style('opacity', 0)
+            .transition().delay(i * 55 + 220).duration(280)
+            .style('opacity', 1);
+        });
+
+        // ── Giggle Physics: Idle Breathing ─────────────────────────
+        // Each node circle does a gentle inhale/exhale on its own schedule
+        nodeGs.each(function (d, i) {
+          const ng = d3.select(this);
+          const delay = i * 380 + Math.random() * 600;
+          const breathe = () => {
+            const dur = 2200 + Math.random() * 800;
+            ng.select('.main-circle')
+              .transition().delay(delay % 500).duration(dur / 2)
+              .ease(d3.easeSinInOut).attr('r', R * 1.055)
+              .transition().duration(dur / 2)
+              .ease(d3.easeSinInOut).attr('r', R)
+              .on('end', breathe);
+          };
+          setTimeout(breathe, delay);
+        });
+
+        simRef.current = sim;
+
+        return () => {
+          sim.stop();
+          d3.select(el).selectAll('svg').remove();
+        };
+      }, [dfa, height]);
+
+      // Update highlight colors
+      useEffect(() => {
+        if (!containerRef.current) return;
+        const svg = d3.select(containerRef.current).select('svg');
+        if (svg.empty()) return;
+        svg.selectAll('g.node').each(function (d) {
+          const ng = d3.select(this);
+          const active = highlightStates.has(d.id);
+          const gcol = groupColorMap ? groupColorMap[d.id] : null;
+          ng.select('.main-circle')
+            .attr('fill', active ? 'rgba(0,113,227,0.12)' : gcol ? gcol + '18' : '#fff')
+            .attr('stroke', active ? '#0071E3' : gcol || '#1D1D1F')
+            .attr('stroke-width', active ? 3 : gcol ? 2.5 : 2);
+          ng.select('text').attr('fill', active ? '#0071E3' : gcol || '#1D1D1F');
+          ng.select('.accept-ring').attr('stroke', active ? '#0071E3' : gcol || '#1D1D1F');
+        });
+      }, [highlightStates, groupColorMap]);
+
+
+
+      return <div ref={containerRef} className="force-graph-container" style={{ width: '100%', height }} />;
+    }
+
+    /* ═══════════════════════════════
+       STATUS LIGHT
+    ═══════════════════════════════ */
+    function StatusLight({ status }) {
+      const cfg = {
+        empty: { cls: 'light-gray', label: 'No DFA' },
+        incomplete: { cls: 'light-orange', label: 'Incomplete' },
+        error: { cls: 'light-red', label: 'Error' },
+        complete: { cls: 'light-green', label: 'Complete ✓' },
+      }[status] || { cls: 'light-gray', label: '—' };
+      return (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+          <div style={{ width: 9, height: 9, borderRadius: '50%' }} className={cfg.cls} />
+          <span style={{ fontFamily: 'JetBrains Mono,monospace', fontSize: '0.68rem', color: '#6E6E73' }}>{cfg.label}</span>
+        </div>
+      );
+    }
+
+    /* ═══════════════════════════════
+       GLASS SIDEBAR
+    ═══════════════════════════════ */
+    function GlassSidebar({ dfa, minResult, onExport }) {
+      const origN = dfa ? dfa.states.length : 0;
+      const minN = minResult ? minResult.minDFA.states.length : null;
+      const pct = (minN !== null && origN > 0) ? Math.round((1 - minN / origN) * 100) : null;
+      const alphabet = dfa ? dfa.alphabet.join(', ') : null;
+
+      return (
+        <div className="glass-sidebar" style={{ width: 210, flexShrink: 0, position: 'sticky', top: 76, borderRadius: 20, padding: 20 }}>
+          <div style={{ fontFamily: 'JetBrains Mono,monospace', fontSize: 10, color: '#6E6E73', textTransform: 'uppercase', letterSpacing: '0.09em', marginBottom: 18, fontWeight: 700 }}>Live Summary</div>
+
+          {/* State count */}
+          <div style={{ marginBottom: 16 }}>
+            <div style={{ fontFamily: 'JetBrains Mono,monospace', fontSize: 9, color: '#6E6E73', letterSpacing: '0.06em', marginBottom: 5 }}>STATES</div>
+            {dfa ? (
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
+                <span style={{ fontFamily: 'JetBrains Mono,monospace', fontSize: 26, fontWeight: 700, color: '#1D1D1F', lineHeight: 1 }}>{origN}</span>
+                {minN !== null && minN !== origN && (
+                  <span style={{ fontFamily: 'JetBrains Mono,monospace', fontSize: 14, color: '#30D158', fontWeight: 600 }}>→ {minN}</span>
+                )}
+              </div>
+            ) : <span style={{ fontFamily: 'JetBrains Mono,monospace', fontSize: 22, color: '#D2D2D7' }}>—</span>}
+          </div>
+
+          {/* Optimization */}
+          <div style={{ marginBottom: 16 }}>
+            <div style={{ fontFamily: 'JetBrains Mono,monospace', fontSize: 9, color: '#6E6E73', letterSpacing: '0.06em', marginBottom: 5 }}>OPTIMIZATION</div>
+            {pct !== null ? (
+              <div>
+                <span style={{ fontFamily: 'JetBrains Mono,monospace', fontSize: 26, fontWeight: 700, color: pct > 0 ? '#30D158' : '#FF9F0A', lineHeight: 1 }}>{pct}%</span>
+                <div style={{ fontFamily: 'JetBrains Mono,monospace', fontSize: 9, color: '#6E6E73', marginTop: 3 }}>more efficient</div>
+              </div>
+            ) : <span style={{ fontFamily: 'JetBrains Mono,monospace', fontSize: 22, color: '#D2D2D7' }}>—</span>}
+          </div>
+
+          {/* Alphabet */}
+          <div style={{ marginBottom: 16 }}>
+            <div style={{ fontFamily: 'JetBrains Mono,monospace', fontSize: 9, color: '#6E6E73', letterSpacing: '0.06em', marginBottom: 5 }}>ALPHABET Σ</div>
+            <div style={{ fontFamily: 'JetBrains Mono,monospace', fontSize: 13, color: '#5E5CE6', fontWeight: 600 }}>
+              {alphabet ? `{${alphabet}}` : '{—}'}
+            </div>
+          </div>
+
+          <div style={{ height: 1, background: 'rgba(0,0,0,0.07)', margin: '14px 0' }} />
+
+          {/* Status */}
+          <div style={{ marginBottom: 16 }}>
+            <div style={{ fontFamily: 'JetBrains Mono,monospace', fontSize: 9, color: '#6E6E73', letterSpacing: '0.06em', marginBottom: 6 }}>STATUS</div>
+            {!dfa ? (
+              <div style={{ fontFamily: 'JetBrains Mono,monospace', fontSize: 11, color: '#C7C7CC' }}>● Waiting</div>
+            ) : !minResult ? (
+              <div style={{ fontFamily: 'JetBrains Mono,monospace', fontSize: 11, color: '#0071E3' }}>● Ready</div>
+            ) : (
+              <div style={{ fontFamily: 'JetBrains Mono,monospace', fontSize: 11, color: '#30D158' }}>● Minimized ✓</div>
+            )}
+          </div>
+
+          {/* Export button */}
+          {dfa && (
+            <button onClick={onExport}
+              style={{ width: '100%', fontFamily: 'JetBrains Mono,monospace', fontSize: 11, fontWeight: 600, padding: '9px 0', borderRadius: 10, border: '1.5px solid #0071E3', background: 'rgba(0,113,227,0.06)', color: '#0071E3', cursor: 'pointer', transition: 'all .2s' }}
+              onMouseEnter={e => { e.target.style.background = '#0071E3'; e.target.style.color = '#fff'; }}
+              onMouseLeave={e => { e.target.style.background = 'rgba(0,113,227,0.06)'; e.target.style.color = '#0071E3'; }}>
+              ↑ Export Code
+            </button>
+          )}
+        </div>
+      );
+    }
+
+    /* ═══════════════════════════════
+       EXPORT MODAL
+    ═══════════════════════════════ */
+    function generateJSON(dfa) {
+      if (!dfa) return '{}';
+      const obj = {
+        states: dfa.states, alphabet: dfa.alphabet, start: dfa.start,
+        accept: [...dfa.accept],
+        transitions: dfa.states.flatMap(s => dfa.alphabet.map(a => ({ from: s, symbol: a, to: dfa.trans(s, a) || null }))),
+      };
+      return JSON.stringify(obj, null, 2);
+    }
+    function generateYAML(dfa) {
+      if (!dfa) return '';
+      const lines = [
+        `states: [${dfa.states.join(', ')}]`,
+        `alphabet: [${dfa.alphabet.join(', ')}]`,
+        `start: ${dfa.start}`,
+        `accept: [${[...dfa.accept].join(', ')}]`,
+        `transitions:`,
+        ...dfa.states.flatMap(s => dfa.alphabet.map(a => `  - { from: ${s}, symbol: ${a}, to: ${dfa.trans(s, a) || 'null'} }`)),
+      ];
+      return lines.join('\n');
+    }
+    function generatePython(dfa) {
+      if (!dfa) return '';
+      const deltaLines = dfa.states.map(s => `    '${s}': {${dfa.alphabet.map(a => `'${a}': '${dfa.trans(s, a)}'`).join(', ')}},`);
+      return `# DFA — Generated by Myhill-Nerode Minimizer
+# Auto-generated — do not edit manually
+
+STATES   = [${dfa.states.map(s => `'${s}'`).join(', ')}]
+ALPHABET = [${dfa.alphabet.map(a => `'${a}'`).join(', ')}]
+START    = '${dfa.start}'
+ACCEPT   = {${[...dfa.accept].map(s => `'${s}'`).join(', ')}}
+
+DELTA = {
+${deltaLines.join('\n')}
+}
+
+def run_dfa(input_str: str) -> tuple[bool, str]:
+    """Run the DFA on input_str. Returns (accepted, trace)."""
+    state = START
+    trace = [state]
+    for ch in input_str:
+        if ch not in ALPHABET:
+            return False, f"Unknown symbol '{ch}'"
+        nxt = DELTA[state].get(ch)
+        if nxt is None:
+            return False, f"No transition from '{state}' on '{ch}'"
+        state = nxt
+        trace.append(state)
+    accepted = state in ACCEPT
+    return accepted, ' → '.join(trace)
+
+if __name__ == '__main__':
+    while True:
+        s = input("Enter string (blank to quit): ")
+        if not s:
+            break
+        ok, trace = run_dfa(s)
+        print(f"  {'ACCEPTED ✓' if ok else 'REJECTED ✗'}  |  {trace}")
+`;
+    }
+    function generateCpp(dfa) {
+      if (!dfa) return '';
+      const pairs = dfa.states.flatMap(s => dfa.alphabet.map(a => `    {{"${s}", '${a}'}, "${dfa.trans(s, a)}"}`));
+      return `// DFA — Generated by Myhill-Nerode Minimizer
+// Compile: g++ -std=c++17 dfa.cpp -o dfa
+
+#include <iostream>
+#include <string>
+#include <map>
+#include <set>
+#include <vector>
+using namespace std;
+
+const string START = "${dfa.start}";
+const set<string> ACCEPT = {${[...dfa.accept].map(s => `"${s}"`).join(', ')}};
+const vector<char> ALPHABET = {${dfa.alphabet.map(a => `'${a}'`).join(', ')}};
+
+const map<pair<string,char>, string> DELTA = {
+${pairs.join(',\n')}
+};
+
+pair<bool,string> runDFA(const string& input) {
+    string state = START;
+    string trace = state;
+    for (char ch : input) {
+        auto it = DELTA.find({state, ch});
+        if (it == DELTA.end())
+            return {false, "No transition from " + state + " on '" + ch + "'"};
+        state = it->second;
+        trace += " → " + state;
+    }
+    return {ACCEPT.count(state) > 0, trace};
+}
+
+int main() {
+    string input;
+    while (true) {
+        cout << "Enter string (blank to quit): ";
+        getline(cin, input);
+        if (input.empty()) break;
+        auto [ok, trace] = runDFA(input);
+        cout << (ok ? "  ACCEPTED ✓" : "  REJECTED ✗") << "  |  " << trace << "\\n";
+    }
+}
+`;
+    }
+
+    function ExportModal({ dfa, minResult, onClose }) {
+      const [tab, setTab] = useState('json');
+      const [copied, setCopied] = useState(false);
+      const dfaTarget = minResult ? minResult.minDFA : dfa;
+
+      const codeMap = useMemo(() => ({
+        json: generateJSON(dfaTarget),
+        yaml: generateYAML(dfaTarget),
+        python: generatePython(dfaTarget),
+        cpp: generateCpp(dfaTarget),
+      }), [dfaTarget]);
+
+      const copy = () => {
+        navigator.clipboard.writeText(codeMap[tab]).then(() => { setCopied(true); setTimeout(() => setCopied(false), 2000); });
+      };
+
+      // Color-code code
+      const highlight = (code, lang) => {
+        if (lang === 'json') {
+          return code.replace(/"([^"]+)":/g, '<span class="nb">"$1"</span>:')
+            .replace(/: "([^"]+)"/g, ': <span class="st">"$1"</span>')
+            .replace(/: (\d+)/g, ': <span class="nu">$1</span>');
+        }
+        if (lang === 'python') {
+          return code.replace(/(#[^\n]*)/g, '<span class="cm">$1</span>')
+            .replace(/\b(def|return|if|not|in|while|True|False|None|for|import|from|and|or|break)\b/g, '<span class="kw">$1</span>')
+            .replace(/'([^']*)'/g, '<span class="st">\'$1\'</span>')
+            .replace(/\b(\d+)\b/g, '<span class="nu">$1</span>');
+        }
+        if (lang === 'cpp') {
+          return code.replace(/(\/\/[^\n]*)/g, '<span class="cm">$1</span>')
+            .replace(/\b(const|string|int|char|bool|auto|pair|map|set|vector|using|namespace|return|for|if|while|true|false|include)\b/g, '<span class="kw">$1</span>')
+            .replace(/"([^"]*)"/g, '<span class="st">"$1"</span>');
+        }
+        if (lang === 'yaml') {
+          return code.replace(/^([a-zA-Z_]+):/gm, '<span class="nb">$1</span>:')
+            .replace(/:\s(.+)/g, ': <span class="st">$1</span>');
+        }
+        return code;
+      };
+
+      return (
+        <div className="export-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
+          <div className="export-modal animate-fade-up">
+            {/* Header */}
+            <div style={{ padding: '20px 24px 0', borderBottom: '1px solid #E8E8ED' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                <div>
+                  <div style={{ fontFamily: 'JetBrains Mono,monospace', fontWeight: 700, fontSize: 14, color: '#1D1D1F' }}>Export DFA</div>
+                  <div style={{ fontFamily: 'JetBrains Mono,monospace', fontSize: 10, color: '#6E6E73', marginTop: 3 }}>
+                    {minResult ? `Minimized DFA · ${dfaTarget.states.length} states` : `Original DFA · ${dfaTarget?.states.length || 0} states`}
+                  </div>
+                </div>
+                <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: '#6E6E73', lineHeight: 1 }}>×</button>
+              </div>
+              <div style={{ display: 'flex', gap: 0, overflowX: 'auto' }}>
+                {[['json', 'JSON'], ['yaml', 'YAML'], ['python', 'Python'], ['cpp', 'C++']].map(([id, lbl]) => (
+                  <button key={id} className={`export-tab-btn ${tab === id ? 'active' : ''}`} onClick={() => setTab(id)}>{lbl}</button>
+                ))}
+              </div>
+            </div>
+            {/* Code */}
+            <div className="code-block" dangerouslySetInnerHTML={{ __html: highlight(esc(codeMap[tab]), tab) }} />
+            {/* Footer */}
+            <div style={{ padding: '14px 24px', borderTop: '1px solid #E8E8ED', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontFamily: 'JetBrains Mono,monospace', fontSize: 10, color: '#6E6E73' }}>
+                {minResult ? '✓ Using minimized DFA' : '⚠ Minimize first for optimal output'}
+              </span>
+              <button onClick={copy}
+                style={{ fontFamily: 'JetBrains Mono,monospace', fontSize: 12, fontWeight: 600, padding: '8px 20px', borderRadius: 10, border: 'none', background: copied ? '#30D158' : '#0071E3', color: '#fff', cursor: 'pointer', transition: 'background .3s' }}>
+                {copied ? '✓ Copied!' : '⎘ Copy'}
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    /* ═══════════════════════════════
+       MN TABLE HELPER
+    ═══════════════════════════════ */
+    function buildMNTableHTML(marked, newlyMarked, states, highlighted, isCheckingMarked) {
+      const n = states.length, nm = new Set(newlyMarked || []);
+      let html = '<div style="overflow-x:auto"><table class="mn-table"><thead><tr><th></th>';
+      for (let j = 0; j < n - 1; j++) html += `<th>${esc(states[j])}</th>`;
+      html += '</tr></thead><tbody>';
+      for (let i = 1; i < n; i++) {
+        html += `<tr><th>${esc(states[i])}</th>`;
+        for (let j = 0; j < n - 1; j++) {
+          if (j >= i) { html += '<td class="mn-cell empty"></td>'; }
+          else {
+            const key = `${j},${i}`, isMarked = marked[key], isNew = nm.has(key);
+            const isHigh = highlighted === key;
+            let cls;
+            if (isHigh) { cls = isCheckingMarked ? 'checking-marked' : 'checking'; }
+            else if (isNew) { cls = 'newly-marked'; }
+            else if (isMarked) { cls = 'marked'; }
+            else { cls = 'unmarked'; }
+            html += `<td class="mn-cell ${cls}" data-pkey="${key}" style="cursor:pointer">${isMarked ? '✓' : ''}</td>`;
+          }
+        }
+        html += '</tr>';
+      }
+      html += '</tbody></table>';
+      if (marked) {
+        const equivPairs = [];
+        for (let i = 0; i < n; i++) for (let j = i + 1; j < n; j++) if (!marked[`${i},${j}`]) equivPairs.push([states[i], states[j]]);
+        if (equivPairs.length) {
+          const par2 = {}; states.forEach(s => par2[s] = s);
+          const find2 = s => par2[s] === s ? s : (par2[s] = find2(par2[s]));
+          equivPairs.forEach(([a, b]) => { par2[find2(a)] = find2(b); });
+          const cls2 = {}; states.forEach(s => { const r = find2(s); if (!cls2[r]) cls2[r] = []; if (!cls2[r].includes(s)) cls2[r].push(s); });
+          const grps = Object.values(cls2).filter(g => g.length > 1);
+          if (grps.length) {
+            html += '<div style="margin-top:12px;font-family:JetBrains Mono,monospace;font-size:.68rem;color:#6E6E73;margin-bottom:6px">Indistinguishable (unmarked):</div>';
+            html += '<div style="display:flex;flex-wrap:wrap;gap:6px">';
+            grps.forEach(g => { html += `<div class="mn-equiv-class">{${g.join(', ')}}</div>`; });
+            html += '</div>';
+          }
+        }
+      }
+      return html + '</div>';
+    }
+
+    /* ═══════════════════════════════
+       MAGNETIC BUTTON
+    ═══════════════════════════════ */
+    function MagneticButton({ children, className, onClick, disabled, type = 'button' }) {
+      const ref = useRef(null);
+      const xTo = useRef(null), yTo = useRef(null);
+      useEffect(() => {
+        if (disabled || !ref.current) return;
+        xTo.current = gsap.quickTo(ref.current, 'x', { duration: .45, ease: 'power3' });
+        yTo.current = gsap.quickTo(ref.current, 'y', { duration: .45, ease: 'power3' });
+        return () => { gsap.set(ref.current, { x: 0, y: 0 }); };
+      }, [disabled]);
+      const onMove = e => {
+        if (disabled || !xTo.current) return;
+        const r = ref.current.getBoundingClientRect();
+        xTo.current((e.clientX - r.left - r.width / 2) * .35);
+        yTo.current((e.clientY - r.top - r.height / 2) * .35);
+      };
+      const onLeave = () => { xTo.current && xTo.current(0); yTo.current && yTo.current(0); };
+      return (
+        <button ref={ref} type={type} className={className} onClick={onClick} disabled={disabled}
+          onMouseMove={onMove} onMouseLeave={onLeave}>{children}</button>
+      );
+    }
+
+    /* ═══════════════════════════════
+       REGEX → DFA  (Thompson + Subset)
+    ═══════════════════════════════ */
+    function regexToDFA(pattern) {
+      // Tokenize
+      let pos = 0;
+      const peek = () => pattern[pos];
+      const consume = () => pattern[pos++];
+
+      // NFA state factory
+      let stateId = 0;
+      const newState = () => ({ id: stateId++, eps: [], trans: {} });
+
+      // Thompson construction
+      function parseExpr() { return parseAlt(); }
+
+      function parseAlt() {
+        let nfa = parseCat();
+        while (pos < pattern.length && peek() === '|') {
+          consume();
+          const right = parseCat();
+          const s = newState(), e = newState();
+          s.eps.push(nfa.start, right.start);
+          nfa.end.eps.push(e); right.end.eps.push(e);
+          nfa = { start: s, end: e };
+        }
+        return nfa;
+      }
+
+      function parseCat() {
+        let nfa = parseQuantified();
+        while (pos < pattern.length && peek() !== ')' && peek() !== '|') {
+          const right = parseQuantified();
+          nfa.end.eps.push(right.start);
+          nfa = { start: nfa.start, end: right.end };
+        }
+        return nfa;
+      }
+
+      function parseQuantified() {
+        let nfa = parseAtom();
+        while (pos < pattern.length && (peek() === '*' || peek() === '+' || peek() === '?')) {
+          const op = consume();
+          const s = newState(), e = newState();
+          if (op === '*') {
+            s.eps.push(nfa.start, e); nfa.end.eps.push(nfa.start, e);
+          } else if (op === '+') {
+            s.eps.push(nfa.start); nfa.end.eps.push(nfa.start, e);
+          } else {
+            s.eps.push(nfa.start, e); nfa.end.eps.push(e);
+          }
+          nfa = { start: s, end: e };
+        }
+        return nfa;
+      }
+
+      function parseAtom() {
+        if (pos >= pattern.length) throw new Error('Unexpected end of regex');
+        if (peek() === '(') {
+          consume();
+          const nfa = parseExpr();
+          if (peek() !== ')') throw new Error('Missing closing parenthesis');
+          consume();
+          return nfa;
+        }
+        if (peek() === '\\') { consume(); }
+        const ch = consume();
+        if (!ch) throw new Error('Empty atom');
+        const s = newState(), e = newState();
+        s.trans[ch] = [e];
+        return { start: s, end: e };
+      }
+
+      const nfa = parseExpr();
+      if (pos < pattern.length) throw new Error(`Unexpected character '${pattern[pos]}' at position ${pos}`);
+
+      // Collect NFA alphabet
+      const alphaSet = new Set();
+      const allStates = [];
+      const visited = new Set();
+      const collectStates = (st) => {
+        if (visited.has(st.id)) return; visited.add(st.id); allStates.push(st);
+        Object.keys(st.trans).forEach(ch => { alphaSet.add(ch); st.trans[ch].forEach(collectStates); });
+        st.eps.forEach(collectStates);
+      };
+      collectStates(nfa.start);
+      const alphabet = [...alphaSet].sort();
+      if (!alphabet.length) throw new Error('Regex matches only empty string — no symbols to build DFA from');
+
+      // Epsilon closure
+      const epsClosure = (stSet) => {
+        const closure = new Set(stSet.map(s => s.id));
+        const stack = [...stSet];
+        while (stack.length) {
+          const st = stack.pop();
+          st.eps.forEach(nx => { if (!closure.has(nx.id)) { closure.add(nx.id); stack.push(nx); } });
+        }
+        return closure;
+      };
+      const stateById = {};
+      allStates.forEach(s => { stateById[s.id] = s; });
+      const getStates = (idSet) => [...idSet].map(id => stateById[id]).filter(Boolean);
+
+      // Subset construction
+      const startClosure = epsClosure([nfa.start]);
+      const setKey = (s) => [...s].sort((a, b) => a - b).join(',');
+      const dfaStates = [startClosure];
+      const dfaMap = { [setKey(startClosure)]: 0 };
+      const dfaDelta = [{}];
+      const queue = [startClosure];
+
+      while (queue.length) {
+        const cur = queue.shift();
+        const curIdx = dfaMap[setKey(cur)];
+        for (const sym of alphabet) {
+          const nextRaw = new Set();
+          getStates(cur).forEach(st => { (st.trans[sym] || []).forEach(nx => nextRaw.add(nx)); });
+          if (!nextRaw.size) continue;
+          const nextClosure = epsClosure([...nextRaw]);
+          const nk = setKey(nextClosure);
+          if (dfaMap[nk] === undefined) {
+            dfaMap[nk] = dfaStates.length;
+            dfaStates.push(nextClosure);
+            dfaDelta.push({});
+            queue.push(nextClosure);
+          }
+          dfaDelta[curIdx][sym] = dfaMap[nk];
+        }
+      }
+
+      // Build result
+      const dfaStateNames = dfaStates.map((_, i) => `q${i}`);
+      const acceptStates = dfaStates.map((set, i) => set.has(nfa.end.id) ? dfaStateNames[i] : null).filter(Boolean);
+      const transLines = [];
+      dfaStates.forEach((_, i) => {
+        for (const sym of alphabet) {
+          if (dfaDelta[i][sym] !== undefined) {
+            transLines.push(`${dfaStateNames[i]},${sym}->${dfaStateNames[dfaDelta[i][sym]]}`);
+          }
+        }
+      });
+
+      return {
+        statesStr: dfaStateNames.join(','),
+        alphaStr: alphabet.join(','),
+        startStr: 'q0',
+        acceptStr: acceptStates.join(','),
+        transStr: transLines.join('\n'),
+      };
+    }
+
+    /* ═══════════════════════════════
+       BUILD TAB  (ENHANCED)
+    ═══════════════════════════════ */
+    function BuildTab({ onDFABuilt, initDFA, showToast }) {
+      const [inputMode, setInputMode] = useState('dfa'); // 'dfa' | 'regex' | 'upload'
+      const [states, setStates] = useState(initDFA ? initDFA._raw?.states || '' : '');
+      const [alpha, setAlpha] = useState(initDFA ? initDFA._raw?.alpha || '' : '');
+      const [start, setStart] = useState(initDFA ? initDFA._raw?.start || '' : '');
+      const [accept, setAccept] = useState(initDFA ? initDFA._raw?.accept || '' : '');
+      const [trans, setTrans] = useState(initDFA ? initDFA._raw?.trans || '' : '');
+      const [error, setError] = useState('');
+      const [dfa, setDfa] = useState(initDFA || null);
+      const [exIdx, setExIdx] = useState(-1);
+
+      // Auto-generate template
+      const [numStates, setNumStates] = useState('');
+      const [genAlpha, setGenAlpha] = useState('0,1');
+
+      // Regex mode
+      const [regexInput, setRegexInput] = useState('');
+      const [regexError, setRegexError] = useState('');
+      const fileInputRef = useRef(null);
+
+      const generateTemplate = () => {
+        const n = parseInt(numStates, 10);
+        if (!n || isNaN(n) || n <= 0) return;
+        const generatedStates = Array.from({ length: n }, (_, i) => `q${i}`);
+        setStates(generatedStates.join(', '));
+        setStart('q0');
+        setAlpha(genAlpha);
+        const splitAlpha = genAlpha.split(',').map(s => s.trim()).filter(Boolean);
+        let newTrans = '';
+        for (const q of generatedStates) {
+          for (const a of splitAlpha) {
+            newTrans += `${q},${a}->q\n`;
+          }
+        }
+        setTrans(newTrans);
+      };
+
+      // ── File Upload ──
+      const handleFileUpload = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+          const text = ev.target.result;
+          try {
+            let parsed = null;
+            const ext = file.name.split('.').pop().toLowerCase();
+
+            // Try JSON
+            if (ext === 'json' || text.trim().startsWith('{') || text.trim().startsWith('[')) {
+              try { parsed = JSON.parse(text); } catch (_) { }
+            }
+
+            if (parsed) {
+              // Support several JSON shapes
+              const s = parsed.states || parsed.States || [];
+              const a = parsed.alphabet || parsed.Alphabet || parsed.sigma || [];
+              const st = parsed.start || parsed.initial || parsed.start_state || '';
+              const acc = parsed.accept || parsed.accepting || parsed.final || parsed.accept_states || [];
+              const trList = parsed.transitions || parsed.delta || parsed.transition_function || [];
+              let transStr = '';
+              if (Array.isArray(trList)) {
+                trList.forEach(t => {
+                  const from = t.from || t.state || t[0];
+                  const sym = t.symbol || t.input || t[1];
+                  const to = t.to || t.next || t.dest || t[2];
+                  if (from && sym !== undefined && to) transStr += `${from},${sym}->${to}\n`;
+                });
+              } else if (typeof trList === 'object') {
+                // dict-of-dicts: { q0: { '0': 'q1' } }
+                Object.entries(trList).forEach(([from, bySymbol]) => {
+                  Object.entries(bySymbol).forEach(([sym, to]) => {
+                    transStr += `${from},${sym}->${to}\n`;
+                  });
+                });
+              }
+              setStates(Array.isArray(s) ? s.join(',') : s);
+              setAlpha(Array.isArray(a) ? a.join(',') : a);
+              setStart(Array.isArray(st) ? st[0] : st);
+              setAccept(Array.isArray(acc) ? acc.join(',') : acc);
+              setTrans(transStr.trim());
+              setInputMode('dfa');
+              showToast('File Loaded ✓', `Imported "${file.name}" as JSON`);
+              return;
+            }
+
+            // YAML-like / Python / plaintext heuristic parser
+            const get = (keys, def = '') => {
+              for (const k of keys) {
+                const re = new RegExp(`^\\s*${k}\\s*[=:]\\s*(.+)`, 'im');
+                const m = text.match(re);
+                if (m) return m[1].trim().replace(/[\[\]'"{}]/g, '');
+              }
+              return def;
+            };
+
+            const rawStates = get(['states', 'STATES', 'Q']);
+            const rawAlpha = get(['alphabet', 'ALPHABET', 'sigma', 'SIGMA']);
+            const rawStart = get(['start', 'START', 'initial', 'q0']);
+            const rawAccept = get(['accept', 'ACCEPT', 'final', 'accepting', 'F']);
+
+            // Parse transitions from DELTA = { ... } or transition lines
+            let transStr = '';
+            const deltaBlock = text.match(/DELTA\s*=\s*\{([\s\S]*?)\}/i) ||
+              text.match(/transitions?\s*[=:]\s*\{([\s\S]*?)\}/i);
+            if (deltaBlock) {
+              const inner = deltaBlock[1];
+              // 'q0': {'0': 'q1', '1': 'q2'}
+              const stateRe = /['"](\w+)['"]\s*:\s*\{([^}]+)\}/g;
+              let sm;
+              while ((sm = stateRe.exec(inner)) !== null) {
+                const from = sm[1];
+                const symRe = /['"](.)['"]:['"](\w+)['"]|['"](.)['"]:['"](\w+)['"]|(\w+):\s*(\w+)/g;
+                let tm;
+                while ((tm = symRe.exec(sm[2])) !== null) {
+                  const sym = tm[1] || tm[3] || tm[5];
+                  const to = tm[2] || tm[4] || tm[6];
+                  if (sym && to) transStr += `${from},${sym}->${to}\n`;
+                }
+              }
+            } else {
+              // Look for state,sym->next lines
+              const lineRe = /^\s*(\w+)\s*,\s*(\S+)\s*(?:->|→)\s*(\w+)/gm;
+              let lm;
+              while ((lm = lineRe.exec(text)) !== null) {
+                transStr += `${lm[1]},${lm[2]}->${lm[3]}\n`;
+              }
+              // YAML list: - { from: q0, symbol: 0, to: q1 }
+              const yamlRe = /-\s*\{\s*from:\s*(\w+)\s*,\s*symbol:\s*(\S+?)\s*,\s*to:\s*(\w+)/g;
+              let ym;
+              while ((ym = yamlRe.exec(text)) !== null) {
+                transStr += `${ym[1]},${ym[2]}->${ym[3]}\n`;
+              }
+            }
+
+            if (!rawStates && !transStr) throw new Error('Could not parse DFA from this file. Please use JSON, YAML, Python, or plain transition format.');
+
+            setStates(rawStates); setAlpha(rawAlpha); setStart(rawStart);
+            setAccept(rawAccept); setTrans(transStr.trim());
+            setInputMode('dfa');
+            showToast('File Loaded ✓', `Imported "${file.name}"`);
+          } catch (err) {
+            setError('File import error: ' + err.message);
+          }
+          // Reset file input so same file can be re-uploaded
+          if (fileInputRef.current) fileInputRef.current.value = '';
+        };
+        reader.readAsText(file);
+      };
+
+      // ── Regex → DFA ──
+      const convertRegex = () => {
+        setRegexError('');
+        try {
+          const result = regexToDFA(regexInput.trim());
+          setStates(result.statesStr);
+          setAlpha(result.alphaStr);
+          setStart(result.startStr);
+          setAccept(result.acceptStr);
+          setTrans(result.transStr);
+          setInputMode('dfa');
+          showToast('Regex Converted ✓', `Built DFA from: ${regexInput}`);
+        } catch (err) {
+          setRegexError(err.message);
+        }
+      };
+
+      // Live validation
+      const [liveDFA, setLiveDFA] = useState(null);
+      const [liveMin, setLiveMin] = useState(null);
+      const [dfaStatus, setDfaStatus] = useState('empty');
+      const debounceRef = useRef(null);
+
+      useEffect(() => {
+        clearTimeout(debounceRef.current);
+        if (!states && !alpha && !start) { setDfaStatus('empty'); setLiveDFA(null); setLiveMin(null); return; }
+        debounceRef.current = setTimeout(() => {
+          try {
+            const d = parseDFA(states, alpha, start, accept, trans);
+            setLiveDFA(d); setLiveMin(minimizeDFA(d)); setDfaStatus('complete');
+          } catch (e) {
+            const msg = e.message;
+            setLiveMin(null);
+            if (msg.includes('Missing:')) { setDfaStatus('incomplete'); setLiveDFA(null); }
+            else if (msg.includes('empty') || msg.includes('missing') || (!states && !alpha)) { setDfaStatus('empty'); setLiveDFA(null); }
+            else { setDfaStatus('error'); setLiveDFA(null); }
+          }
+        }, 380);
+        return () => clearTimeout(debounceRef.current);
+      }, [states, alpha, start, accept, trans]);
+
+      const loadExample = () => {
+        let next;
+        do { next = Math.floor(Math.random() * DFA_EXAMPLES.length); } while (next === exIdx && DFA_EXAMPLES.length > 1);
+        setExIdx(next);
+        const ex = DFA_EXAMPLES[next];
+        setStates(ex.states); setAlpha(ex.alpha); setStart(ex.start); setAccept(ex.accept); setTrans(ex.trans);
+        showToast(ex.name, ex.desc);
+      };
+
+      const buildDFA = () => {
+        setError('');
+        if (liveDFA && dfaStatus === 'complete') {
+          const rawData = { states, alpha, start, accept, trans };
+          liveDFA._raw = rawData;
+          setDfa(liveDFA); onDFABuilt(liveDFA);
+        } else {
+          try {
+            const d = parseDFA(states, alpha, start, accept, trans);
+            const rawData = { states, alpha, start, accept, trans }; d._raw = rawData;
+            setDfa(d); onDFABuilt(d);
+          } catch (e) { setError(e.message); }
+        }
+      };
+
+      const tableHTML = useCallback(() => {
+        const src = dfa;
+        if (!src) return '';
+        let h = '<table class="dfa-table"><thead><tr><th>State</th>';
+        src.alphabet.forEach(a => { h += `<th>${esc(a)}</th>`; });
+        h += '</tr></thead><tbody>';
+        src.states.forEach(s => {
+          const isA = src.accept.has(s), isS = src.start === s;
+          let lbl = s, cls = '';
+          if (isS && isA) { lbl = '→* ' + s; cls = 'cell-both'; }
+          else if (isS) { lbl = '→  ' + s; cls = 'cell-start'; }
+          else if (isA) { lbl = '*  ' + s; cls = 'cell-accept'; }
+          h += `<tr><td class="${cls}">${lbl}</td>`;
+          src.alphabet.forEach(sym => { h += `<td>${src.trans(s, sym) || '—'}</td>`; });
+          h += '</tr>';
+        });
+        return h + '</tbody></table>';
+      }, [dfa]);
+
+      const previewDFA = dfaStatus === 'complete' ? liveDFA : dfa;
+      const liveOrigN = liveDFA ? liveDFA.states.length : 0;
+      const liveMinN = liveMin ? liveMin.minDFA.states.length : 0;
+      const livePct = liveOrigN > 0 ? Math.round((1 - liveMinN / liveOrigN) * 100) : 0;
+
+      return (
+        <div className="animate-tab-in grid gap-5 grid-builder" style={{ gridTemplateColumns: '340px 1fr', alignItems: 'start' }}>
+          {/* Form */}
+          <div className="bg-white rounded-2xl p-6 shadow-card border border-[#D2D2D7]" style={{ borderTop: '3px solid #0071E3' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+              <h2 className="font-mono text-xs font-bold text-[#6E6E73] uppercase tracking-widest">DFA Definition</h2>
+              <StatusLight status={dfaStatus} />
+            </div>
+
+            {/* ── Input mode switcher ── */}
+            <div style={{ display: 'flex', gap: 4, marginBottom: 16, background: '#F5F5F7', borderRadius: 12, padding: 4 }}>
+              {[['dfa', '⌨ Manual DFA'], ['regex', '🔤 Regex'], ['upload', '📂 Upload File']].map(([mode, label]) => (
+                <button key={mode} onClick={() => setInputMode(mode)}
+                  style={{
+                    flex: 1, padding: '6px 4px', borderRadius: 8, border: 'none', cursor: 'pointer',
+                    fontFamily: 'JetBrains Mono,monospace', fontSize: '10px', fontWeight: 600,
+                    background: inputMode === mode ? '#0071E3' : 'transparent',
+                    color: inputMode === mode ? '#fff' : '#6E6E73',
+                    transition: 'all .2s',
+                  }}>
+                  {label}
+                </button>
+              ))}
+            </div>
+
+            {/* ── REGEX MODE ── */}
+            {inputMode === 'regex' && (
+              <div style={{ marginBottom: 16 }}>
+                <div style={{ fontFamily: 'JetBrains Mono,monospace', fontSize: 10, fontWeight: 700, color: '#5E5CE6', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 10 }}>Regular Expression → DFA</div>
+                <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: '#1D1D1F', marginBottom: 6 }}>Enter Regular Expression</label>
+                <div style={{ position: 'relative', marginBottom: 8 }}>
+                  <input value={regexInput} onChange={e => { setRegexInput(e.target.value); setRegexError(''); }}
+                    onScroll={e => { if (e.target.nextElementSibling) e.target.nextElementSibling.scrollLeft = e.target.scrollLeft; }}
+                    spellCheck={false}
+                    className="mono-input regex-input"
+                    style={{ width: '100%', color: 'transparent', margin: 0, position: 'relative', zIndex: 1 }} />
+                  <div style={{
+                    position: 'absolute', top: '1.5px', left: '1.5px', right: '1.5px', bottom: '1.5px',
+                    pointerEvents: 'none', zIndex: 2, padding: '9px 12px',
+                    fontFamily: 'JetBrains Mono,monospace', fontSize: '0.82rem',
+                    whiteSpace: 'pre', overflow: 'hidden', color: regexInput ? 'inherit' : '#C7C7CC'
+                  }}
+                    dangerouslySetInnerHTML={{
+                      __html: regexInput === ''
+                        ? 'e.g.  (0|1)*0  or  a(ba)*'
+                        : regexInput.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/([*+])/g, '<span class="regex-operator" style="display:inline-block;transform:translateY(-5px) scale(0.85)">$1</span>')
+                    }}></div>
+                </div>
+                <div style={{ fontFamily: 'JetBrains Mono,monospace', fontSize: 9.5, color: '#6E6E73', marginBottom: 12, lineHeight: 1.7 }}>
+                  Supported: <code style={{ color: '#5E5CE6' }}>|</code> (union) · <code style={{ color: '#5E5CE6' }}><sup>*</sup></code> (Kleene) · <code style={{ color: '#5E5CE6' }}><sup>+</sup></code> (one-or-more) · <code style={{ color: '#5E5CE6' }}>?</code> (optional) · <code style={{ color: '#5E5CE6' }}>()</code> (groups) · literals
+                </div>
+                <button onClick={convertRegex}
+                  style={{ width: '100%', padding: '9px', borderRadius: 10, border: 'none', background: '#5E5CE6', color: '#fff', fontFamily: 'JetBrains Mono,monospace', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
+                  Convert to DFA →
+                </button>
+                {regexError && <div className="error-box" style={{ marginTop: 10 }}>{regexError}</div>}
+                <div style={{ marginTop: 14, padding: '10px 12px', background: 'rgba(94,92,230,0.06)', borderRadius: 10, border: '1px solid rgba(94,92,230,0.15)' }}>
+                  <div style={{ fontFamily: 'JetBrains Mono,monospace', fontSize: 9, color: '#5E5CE6', fontWeight: 700, marginBottom: 6 }}>EXAMPLES</div>
+                  {[['(0|1)*0', 'Strings ending in 0'], ['a(ba)*', 'Alternating a,b'], ['(ab)+', 'One or more ab'], ['0*10*', 'Exactly one 1']].map(([ex, desc]) => (
+                    <div key={ex} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4, cursor: 'pointer' }}
+                      onClick={() => { setRegexInput(ex); setRegexError(''); }}>
+                      <code style={{ fontFamily: 'JetBrains Mono,monospace', fontSize: 11, color: '#5E5CE6' }} dangerouslySetInnerHTML={{ __html: ex.replace(/([*+])/g, '<sup>$1</sup>') }}></code>
+                      <span style={{ fontFamily: 'JetBrains Mono,monospace', fontSize: 9, color: '#6E6E73' }}>{desc}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* ── UPLOAD MODE ── */}
+            {inputMode === 'upload' && (
+              <div style={{ marginBottom: 16 }}>
+                <div style={{ fontFamily: 'JetBrains Mono,monospace', fontSize: 10, fontWeight: 700, color: '#30D158', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 10 }}>Import DFA from File</div>
+                <label style={{
+                  display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                  border: '2px dashed #D2D2D7', borderRadius: 14, padding: '28px 16px', cursor: 'pointer',
+                  background: '#F5F5F7', transition: 'border-color .2s',
+                }} onMouseEnter={e => e.currentTarget.style.borderColor = '#30D158'}
+                  onMouseLeave={e => e.currentTarget.style.borderColor = '#D2D2D7'}>
+                  <div style={{ fontSize: 28, marginBottom: 8 }}>📂</div>
+                  <div style={{ fontFamily: 'JetBrains Mono,monospace', fontSize: 12, fontWeight: 700, color: '#1D1D1F', marginBottom: 4 }}>Click to choose file</div>
+                  <div style={{ fontFamily: 'JetBrains Mono,monospace', fontSize: 10, color: '#6E6E73' }}>JSON · YAML · Python · .txt</div>
+                  <input ref={fileInputRef} type="file" accept=".json,.yaml,.yml,.py,.txt" onChange={handleFileUpload} style={{ display: 'none' }} />
+                </label>
+                <div style={{ marginTop: 14, padding: '10px 12px', background: 'rgba(48,209,88,0.05)', borderRadius: 10, border: '1px solid rgba(48,209,88,0.2)' }}>
+                  <div style={{ fontFamily: 'JetBrains Mono,monospace', fontSize: 9, color: '#30D158', fontWeight: 700, marginBottom: 6 }}>SUPPORTED FORMATS</div>
+                  {[['JSON', '{states:[...], alphabet:[...], start:"q0", accept:[...], transitions:[...]}'],
+                  ['Python', 'STATES=[...], ALPHABET=[...], START="q0", ACCEPT={...}, DELTA={...}'],
+                  ['YAML', 'states: [...], alphabet: [...], start: q0, accept: [...], transitions: [...]'],
+                  ['Text', 'q0,0->q1  (one transition per line)'],
+                  ].map(([fmt, ex]) => (
+                    <div key={fmt} style={{ marginBottom: 6 }}>
+                      <span style={{ fontFamily: 'JetBrains Mono,monospace', fontSize: 10, fontWeight: 700, color: '#30D158' }}>{fmt}</span>
+                      <div style={{ fontFamily: 'JetBrains Mono,monospace', fontSize: 8.5, color: '#6E6E73', marginTop: 1 }}>{ex}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* ── DFA MANUAL MODE ── */}
+            {inputMode === 'dfa' && (
+              <>
+                <div className="mb-5 p-3.5 rounded-xl border border-dashed border-[#D2D2D7] bg-[#F5F5F7]">
+                  <div className="font-mono text-[10px] font-bold text-[#0071E3] uppercase tracking-widest mb-2">Auto-Generate Template</div>
+                  <div className="flex gap-2 items-end">
+                    <div className="flex-1">
+                      <label className="block text-[10px] font-semibold text-[#6E6E73] mb-1">Number of States</label>
+                      <input type="number" min="1" value={numStates} onChange={e => setNumStates(e.target.value)} placeholder="e.g. 4" className="mono-input" style={{ padding: '6px 10px' }} />
+                    </div>
+                    <div className="flex-1">
+                      <label className="block text-[10px] font-semibold text-[#6E6E73] mb-1">Alphabet (comma-separated)</label>
+                      <input value={genAlpha} onChange={e => setGenAlpha(e.target.value)} placeholder="0,1" className="mono-input" style={{ padding: '6px 10px' }} />
+                    </div>
+                    <button onClick={generateTemplate} className="px-3 rounded-lg bg-[#0071E3] text-white font-mono text-[11px] font-bold shadow-btn hover:bg-[#0077ED] transition-colors" style={{ height: '31px' }}>
+                      Generate
+                    </button>
+                  </div>
+                </div>
+
+                {[
+                  { id: 'states', label: 'States', hint: 'comma-separated', val: states, set: setStates, ph: 'q0,q1,q2,q3' },
+                  { id: 'alpha', label: 'Alphabet Σ', hint: 'comma-separated', val: alpha, set: setAlpha, ph: '0,1' },
+                  { id: 'start', label: 'Start State q₀', hint: '', val: start, set: setStart, ph: 'q0' },
+                  { id: 'accept', label: 'Accept States F', hint: 'comma-separated', val: accept, set: setAccept, ph: 'q2,q4' },
+                ].map(f => (
+                  <div key={f.id} className="mb-4">
+                    <label className="block text-xs font-semibold text-[#1D1D1F] mb-1.5">
+                      {f.label} {f.hint && <span className="text-[#6E6E73] font-normal">({f.hint})</span>}
+                    </label>
+                    <input value={f.val} onChange={e => f.set(e.target.value)} placeholder={f.ph} className="mono-input" />
+                  </div>
+                ))}
+                <div className="mb-4">
+                  <label className="block text-xs font-semibold text-[#1D1D1F] mb-1">Transition Function δ</label>
+                  <p className="text-[#6E6E73] text-xs mb-1.5 font-mono">Format: <code style={{ color: '#5E5CE6' }}>state,symbol→next</code></p>
+                  <textarea value={trans} onChange={e => setTrans(e.target.value)} rows={8}
+                    placeholder={'q0,0->q1\nq0,1->q2\nq1,0->q3\n...'} className="mono-input" />
+                </div>
+              </>
+            )}
+
+            {/* ── Action buttons (always visible) ── */}
+            {inputMode === 'dfa' && (
+              <div className="flex gap-2.5" style={{ marginBottom: error ? 0 : 0 }}>
+                <MagneticButton onClick={loadExample} className="flex-1 py-2.5 px-3 text-xs font-mono font-semibold rounded-xl border border-[#D2D2D7] bg-white text-[#6E6E73] hover:border-[#0071E3] hover:text-[#0071E3] transition-colors cursor-pointer">
+                  Load Example
+                </MagneticButton>
+                <MagneticButton onClick={buildDFA} className="flex-1 py-2.5 px-3 text-xs font-mono font-bold rounded-xl bg-[#0071E3] text-white shadow-btn hover:bg-[#0077ED] transition-colors cursor-pointer">
+                  Build & Preview →
+                </MagneticButton>
+              </div>
+            )}
+            {error && <div className="error-box mt-4">{error}</div>}
+
+            {/* Live Minimization Preview */}
+            {dfaStatus === 'complete' && liveMin && (
+              <div className="live-preview mt-4">
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                  <span style={{ fontFamily: 'JetBrains Mono,monospace', fontSize: 10, fontWeight: 700, color: '#0071E3', textTransform: 'uppercase', letterSpacing: '0.07em' }}>
+                    ⚡ Live Minimization
+                  </span>
+                  <span style={{ fontFamily: 'JetBrains Mono,monospace', fontSize: 9, color: '#30D158' }}>Auto ✓</span>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
+                  {[
+                    { label: 'Original', val: liveOrigN, color: '#FF9F0A' },
+                    { label: 'Minimized', val: liveMinN, color: '#30D158' },
+                    { label: 'Reduction', val: livePct + '%', color: '#0071E3' },
+                  ].map(({ label, val, color }) => (
+                    <div key={label} style={{ textAlign: 'center', padding: '8px 4px', background: 'rgba(255,255,255,0.7)', borderRadius: 8 }}>
+                      <div style={{ fontFamily: 'JetBrains Mono,monospace', fontSize: 16, fontWeight: 700, color }}>{val}</div>
+                      <div style={{ fontFamily: 'JetBrains Mono,monospace', fontSize: 8, color: '#6E6E73', marginTop: 2 }}>{label}</div>
+                    </div>
+                  ))}
+                </div>
+                <div style={{ fontFamily: 'JetBrains Mono,monospace', fontSize: 9, color: '#6E6E73', marginTop: 8 }}>
+                  Classes: {liveMin.finalPartitions.map(g => `{${g.join(',')}}`).join(' · ')}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Preview Column */}
+          <div className="flex flex-col gap-5">
+            <div className="bg-white rounded-2xl p-5 shadow-card border border-[#D2D2D7]" style={{ borderTop: '3px solid #5E5CE6' }}>
+              <h2 className="font-mono text-xs font-bold text-[#6E6E73] uppercase tracking-widest mb-3">Transition Table δ</h2>
+              {dfa
+                ? <div style={{ overflowX: 'auto' }} dangerouslySetInnerHTML={{ __html: tableHTML() }} />
+                : <p className="text-[#6E6E73] font-mono text-xs">Fill the form and click Build & Preview.</p>}
+            </div>
+            <div className="bg-white rounded-2xl p-5 shadow-card border border-[#D2D2D7]" style={{ borderTop: '3px solid #30D158' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                <h2 className="font-mono text-xs font-bold text-[#6E6E73] uppercase tracking-widest">
+                  DFA Graph
+                  <span className="text-[10px] bg-[#F5F5F7] border border-[#D2D2D7] text-[#6E6E73] rounded px-2 py-0.5 ml-1">Original</span>
+                </h2>
+                {previewDFA && <span style={{ fontFamily: 'JetBrains Mono,monospace', fontSize: 9, color: '#6E6E73' }}>Drag nodes · Scroll to zoom</span>}
+              </div>
+              {previewDFA
+                ? <ForceGraph dfa={previewDFA} height={340} />
+                : <p className="text-[#6E6E73] font-mono text-xs">Build a DFA to see the interactive graph.</p>}
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    /* ═══════════════════════════════
+       GRANULAR STEP GENERATOR
+    ═══════════════════════════════ */
+    function generateGranularSteps(dfa, isNested = false) {
+      const { states, alphabet } = dfa;
+      const n = states.length;
+      const steps = [];
+      const pairKey = (a, b) => { const ia = states.indexOf(a), ib = states.indexOf(b); return ia < ib ? `${ia},${ib}` : `${ib},${ia}`; };
+
+      // Init
+      const initMarked = {};
+      for (let i = 0; i < n; i++) for (let j = i + 1; j < n; j++) initMarked[`${i},${j}`] = false;
+      steps.push({
+        phase: 'init', round: 0, highlighted: null, isCheckingMarked: false, newlyMarked: [], marked: { ...initMarked },
+        headline: 'Initialize Table', explanation: `Create a ${n}×${n} table for all ${Object.keys(initMarked).length} state pair${Object.keys(initMarked).length > 1 ? 's' : ''}.  Every pair starts <strong>unmarked</strong> — we assume all states are equivalent until proven otherwise.`,
+        badge: null, badgeColor: null
+      });
+
+      // Base case — pair by pair
+      const m1 = { ...initMarked }, baseMarked = [];
+      for (let i = 0; i < n; i++) for (let j = i + 1; j < n; j++) {
+        const key = `${i},${j}`, si = states[i], sj = states[j];
+        const ai = dfa.accept.has(si), aj = dfa.accept.has(sj);
+        const willMark = ai !== aj;
+        steps.push({
+          phase: 'base-check', round: 1, highlighted: key, isCheckingMarked: m1[key] || false, newlyMarked: [...baseMarked], marked: { ...m1 },
+          headline: `Base Case — Checking (${si}, ${sj})`,
+          explanation: `<strong>(${si}, ${sj})</strong>: ${si} is ${ai ? '<span style="color:#30D158">an accept state ✓</span>' : '<span style="color:#6E6E73">not an accept</span>'}, ${sj} is ${aj ? '<span style="color:#30D158">an accept state ✓</span>' : '<span style="color:#6E6E73">not an accept</span>'}.${willMark ? `  →  One accepts, one rejects → <strong style="color:#FF9F0A">MARK as distinguishable</strong>` : ' → Same type, leave unmarked for now.'}`,
+          badge: willMark ? '✗ Distinguishable' : '≈ Same type', badgeColor: willMark ? '#FF9F0A' : '#6E6E73'
+        });
+        if (willMark) { m1[key] = true; baseMarked.push(key); }
+      }
+      steps.push({
+        phase: 'base', round: 1, highlighted: null, isCheckingMarked: false, newlyMarked: [...baseMarked], marked: { ...m1 },
+        headline: 'Base Case Complete',
+        explanation: `Marked <strong>${baseMarked.length}</strong> pair${baseMarked.length !== 1 ? 's' : ''} where one state is accepting and the other is not${baseMarked.length ? `: <strong>${baseMarked.map(k => { const [i, j] = k.split(','); return `(${states[i]},${states[j]})`; }).join(', ')}</strong>` : ' (none)'}. Moving to iterative rounds.`,
+        badge: `${baseMarked.length} marked`, badgeColor: '#FF9F0A'
+      });
+
+      // Iterative rounds
+      let cur = { ...m1 }, roundNum = 2, changed = true;
+      while (changed) {
+        changed = false; const next = { ...cur }, newlyMarked = [];
+        for (let i = 0; i < n; i++) for (let j = i + 1; j < n; j++) {
+          const key = `${i},${j}`; if (cur[key]) continue;
+          const si = states[i], sj = states[j];
+          let markedThisPair = false;
+          for (const sym of alphabet) {
+            const ti = dfa.trans(si, sym), tj = dfa.trans(sj, sym);
+            if (!ti || !tj || ti === tj) {
+              steps.push({
+                phase: 'iter-check', round: roundNum, highlighted: key, isCheckingMarked: false, newlyMarked: [...newlyMarked], marked: { ...next },
+                headline: `Round ${roundNum} — (${si}, ${sj}) on '${sym}'`,
+                explanation: `δ(<strong>${si}</strong>, <em>${sym}</em>) = <strong>${ti || '∅'}</strong>,  δ(<strong>${sj}</strong>, <em>${sym}</em>) = <strong>${tj || '∅'}</strong>. ${!ti || !tj ? 'A destination is undefined.' : 'Same destination — '}<span style="color:#6E6E73">no conclusion from this symbol.</span>`,
+                badge: '→ skip', badgeColor: '#6E6E73'
+              });
+              continue;
+            }
+            const dk = pairKey(ti, tj), isDistinguished = cur[dk];
+            steps.push({
+              phase: 'iter-check', round: roundNum, highlighted: key, isCheckingMarked: isDistinguished && !markedThisPair, newlyMarked: [...newlyMarked], marked: { ...next },
+              headline: `Round ${roundNum} — (${si}, ${sj}) on '${sym}'`,
+              explanation: `δ(<strong>${si}</strong>, <em>${sym}</em>) = <strong>${ti}</strong>,  δ(<strong>${sj}</strong>, <em>${sym}</em>) = <strong>${tj}</strong>.  Pair (<strong>${ti}</strong>, <strong>${tj}</strong>) is <strong style="color:${isDistinguished ? '#FF453A' : '#6E6E73'}">${isDistinguished ? 'already marked ✗' : 'not yet marked'}</strong>.${isDistinguished && !markedThisPair ? `  →  <strong style="color:#FF9F0A">MARK (${si}, ${sj}) as distinguishable!</strong>` : '  →  No new marking.'}`,
+              badge: isDistinguished && !markedThisPair ? '✗ Mark!' : '≈ No change', badgeColor: isDistinguished && !markedThisPair ? '#FF9F0A' : '#6E6E73'
+            });
+            if (isDistinguished && !markedThisPair) {
+              next[key] = true; newlyMarked.push(key); changed = true; markedThisPair = true; break;
+            }
+          }
+        }
+        cur = next;
+        steps.push({
+          phase: changed ? 'iter' : 'done', round: roundNum, highlighted: null, isCheckingMarked: false, newlyMarked: [...newlyMarked], marked: { ...cur },
+          headline: changed ? `Round ${roundNum} Summary` : `Algorithm Complete 🎉`,
+          explanation: changed
+            ? `Round <strong>${roundNum}</strong> complete. Newly marked: <strong>${newlyMarked.map(k => { const [i, j] = k.split(','); return `(${states[i]},${states[j]})`; }).join(', ') || 'none'}</strong>. Starting next round…`
+            : `Round <strong>${roundNum}</strong>: no new pairs were marked. The algorithm has converged.  <strong>Unmarked pairs are indistinguishable states</strong> — they can be safely merged.`,
+          badge: changed ? `+${newlyMarked.length} marked` : '✓ Done', badgeColor: changed ? '#FF9F0A' : '#30D158'
+        });
+        roundNum++;
+      }
+
+      // Add phase 2 verification natively if this was the main run
+      if (!isNested) {
+        const minResult = minimizeDFA(dfa);
+        if (minResult.minDFA.states.length < n) {
+          const tableStates = minResult.minDFA.states.map(s => {
+            const grp = minResult.minDFA.labelMap[s];
+            return grp ? `{${grp.join(',')}}` : s;
+          });
+
+          steps.push({
+            phase: 'done', round: roundNum, highlighted: null, isCheckingMarked: false, newlyMarked: [], marked: { ...cur }, tableStates: states,
+            headline: 'Phase 1 Complete: Form Groups',
+            explanation: `All indistinguishable (unmarked) pairs will now be merged into <strong>Equivalence Groups</strong>. We will establish a new table with these groups as the states and run the algorithm again to prove minimality!`,
+            badge: 'Setting up Verifier', badgeColor: '#5E5CE6'
+          });
+
+          const vSteps = generateGranularSteps(minResult.minDFA, true);
+          vSteps.forEach(vs => {
+            vs.tableStates = tableStates;
+            if (vs.phase === 'init') {
+              vs.headline = "Verification Phase: Initialize";
+              vs.explanation = `Created a new ${tableStates.length}×${tableStates.length} table containing our merged groups. If our previous grouping was correct, <strong>every single pair</strong> on this new table will be marked distinguishable!`;
+              vs.badge = "Phase 2";
+              vs.badgeColor = "#FF9F0A";
+            } else {
+              vs.headline = `Verify: ${vs.headline}`;
+              vs.badge = "Verification";
+              vs.badgeColor = "#FF9F0A";
+              if (vs.phase === 'done') {
+                vs.headline = "Verification Complete: 100% Marked ✨";
+                vs.explanation = "Every single pair in the new table has been marked. This mathematically proves that 0 indistinguishable pairs remain and our DFA is <strong>perfectly minimal!</strong>";
+                vs.badge = "Fully Minimal";
+                vs.badgeColor = "#30D158";
+              }
+            }
+            steps.push(vs);
+          });
+        }
+      }
+
+      return steps;
+    }
+
+    /* ═══════════════════════════════
+       MINIMIZE TAB
+    ═══════════════════════════════ */
+    function MinimizeTab({ dfa, onMinDone }) {
+      const [granularSteps, setGranularSteps] = useState(null);
+      const [minResult, setMinResult] = useState(null);
+      const [currentIdx, setCurrentIdx] = useState(-1);
+      const [isPlaying, setIsPlaying] = useState(false);
+      const [speed, setSpeed] = useState(50); // 0–100
+      const [meltGroups, setMeltGroups] = useState(null);
+      const [showMin, setShowMin] = useState(false);
+      const playRef = useRef(false);
+      const timerRef = useRef(null);
+      const explainRef = useRef(null);
+
+      // Speed → delay ms: 0→2500ms, 50→800ms, 100→120ms
+      const speedToDelay = s => Math.round(2500 * Math.pow(0.026, s / 100));
+
+      const init = useCallback(() => {
+        if (!dfa) return;
+        const gs = generateGranularSteps(dfa);
+        const mr = minimizeDFA(dfa);
+        setGranularSteps(gs); setMinResult(mr); setCurrentIdx(-1);
+        setIsPlaying(false); setMeltGroups(null); setShowMin(false);
+        onMinDone(null);
+        playRef.current = false;
+        clearTimeout(timerRef.current);
+      }, [dfa, onMinDone]);
+
+      useEffect(() => { return () => { clearTimeout(timerRef.current); playRef.current = false; }; }, []);
+
+      const isDone = granularSteps && currentIdx === granularSteps.length - 1;
+      const curStep = granularSteps && currentIdx >= 0 ? granularSteps[currentIdx] : null;
+
+      const goTo = useCallback((idx, steps, mr) => {
+        const gs = steps || granularSteps, r = mr || minResult;
+        if (!gs) return;
+        const safe = Math.max(0, Math.min(idx, gs.length - 1));
+        setCurrentIdx(safe);
+        if (safe === gs.length - 1 && r) { onMinDone(r); }
+        // scroll explain
+        setTimeout(() => { explainRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }, 40);
+      }, [granularSteps, minResult, onMinDone]);
+
+      const stepForward = useCallback(() => {
+        if (!granularSteps || currentIdx >= granularSteps.length - 1) return;
+        goTo(currentIdx + 1);
+      }, [granularSteps, currentIdx, goTo]);
+
+      const stepBack = useCallback(() => {
+        if (!granularSteps || currentIdx <= 0) return;
+        goTo(currentIdx - 1);
+        onMinDone(null);
+      }, [granularSteps, currentIdx, goTo, onMinDone]);
+
+      const runAll = useCallback(() => {
+        if (!granularSteps) return;
+        setIsPlaying(false); playRef.current = false; clearTimeout(timerRef.current);
+        goTo(granularSteps.length - 1);
+      }, [granularSteps, goTo]);
+
+      const reset = useCallback(() => {
+        setIsPlaying(false); playRef.current = false; clearTimeout(timerRef.current);
+        setCurrentIdx(-1); setMeltGroups(null); setShowMin(false); onMinDone(null);
+      }, [onMinDone]);
+
+      // Auto-play loop
+      const scheduleNext = useCallback(() => {
+        if (!playRef.current) return;
+        timerRef.current = setTimeout(() => {
+          setCurrentIdx(prev => {
+            if (!granularSteps) { playRef.current = false; setIsPlaying(false); return prev; }
+            if (prev >= granularSteps.length - 1) {
+              playRef.current = false; setIsPlaying(false);
+              if (minResult) onMinDone(minResult);
+              return prev;
+            }
+            const nxt = prev + 1;
+            if (nxt === granularSteps.length - 1 && minResult) onMinDone(minResult);
+            setTimeout(scheduleNext, 0);
+            return nxt;
+          });
+        }, speedToDelay(speed));
+      }, [granularSteps, minResult, speed, onMinDone]);
+
+      const togglePlay = useCallback(() => {
+        if (!granularSteps) {
+          const gs = generateGranularSteps(dfa);
+          const mr = minimizeDFA(dfa);
+          setGranularSteps(gs); setMinResult(mr); setCurrentIdx(-1);
+          onMinDone(null);
+          playRef.current = true; setIsPlaying(true);
+          setTimeout(() => {
+            setCurrentIdx(p => {
+              const nxt = Math.max(0, p + 1);
+              setTimeout(scheduleNext, 0);
+              return nxt;
+            });
+          }, 100);
+          return;
+        }
+        if (isPlaying) {
+          playRef.current = false; setIsPlaying(false); clearTimeout(timerRef.current);
+        } else {
+          if (isDone) { setCurrentIdx(-1); onMinDone(null); }
+          playRef.current = true; setIsPlaying(true);
+          scheduleNext();
+        }
+      }, [granularSteps, isPlaying, isDone, dfa, onMinDone, scheduleNext]);
+
+      useEffect(() => {
+        if (isPlaying) { clearTimeout(timerRef.current); scheduleNext(); }
+      }, [speed]);
+
+      const total = granularSteps ? granularSteps.length : 0;
+      const progress = total > 0 && currentIdx >= 0 ? Math.round(((currentIdx + 1) / total) * 100) : 0;
+
+      const phaseColors = { init: '#5E5CE6', 'base-check': '#FF9F0A', base: '#FF9F0A', 'iter-check': '#0071E3', iter: '#0071E3', done: '#30D158' };
+      const phaseLabels = { init: 'Initialize', 'base-check': 'Base Case', base: 'Base Case', 'iter-check': 'Iteration', iter: 'Iteration', done: 'Complete' };
+
+      // ── Pair focus (click on marking table cell) ──
+      const [focusedPair, setFocusedPair] = useState(null); // e.g. "1,3"
+      const tableContainerRef = useRef(null);
+
+      useEffect(() => {
+        const el = tableContainerRef.current;
+        if (!el) return;
+        const handler = (e) => {
+          const td = e.target.closest('td.mn-cell:not(.empty)');
+          if (!td) return;
+          const dataKey = td.dataset.pkey;
+          if (!dataKey) return;
+          setFocusedPair(prev => prev === dataKey ? null : dataKey);
+        };
+        el.addEventListener('click', handler);
+        return () => el.removeEventListener('click', handler);
+      }, [tableHTML]);
+
+      // Build wheel steps: group by round milestones
+      const wheelSteps = useMemo(() => {
+        if (!granularSteps) return [];
+        const milestones = [];
+        const seenRounds = new Set();
+        granularSteps.forEach((s, idx) => {
+          const key = `${s.round}-${s.phase}`;
+          if (!seenRounds.has(key) && ['init','base','iter','done'].includes(s.phase)) {
+            seenRounds.add(key);
+            milestones.push({ idx, label: s.phase === 'init' ? 'Init' : s.phase === 'base' ? 'Base' : s.phase === 'done' ? 'Done' : `R${s.round}`, phase: s.phase, round: s.round });
+          }
+        });
+        return milestones;
+      }, [granularSteps]);
+
+      const groupColorMap = useMemo(() => {
+        if (!minResult) return null;
+        const map = {};
+        minResult.finalPartitions.forEach((g, gi) => { const c = GROUP_COLORS[gi % GROUP_COLORS.length]; g.forEach(s => { map[s] = c; }); });
+        return map;
+      }, [minResult]);
+
+      const tableHTML = useMemo(() => {
+        if (!curStep) return '';
+        const statesToUse = curStep.tableStates || dfa.states;
+        return buildMNTableHTML(curStep.marked, curStep.newlyMarked, statesToUse, curStep.highlighted, curStep.isCheckingMarked);
+      }, [curStep, dfa]);
+
+      if (!dfa) return (
+        <div className="animate-tab-in flex flex-col items-center justify-center py-24 text-center">
+          <div style={{ fontSize: 48, marginBottom: 16, opacity: 0.35 }}>⚙</div>
+          <p className="text-[#6E6E73] font-mono text-sm">Build a DFA on the <strong className="text-[#1D1D1F]">① Build</strong> tab first.</p>
+        </div>
+      );
+
+      return (
+        <div className="animate-tab-in flex flex-col gap-5">
+
+          {/* ── Control Bar ── */}
+          <div style={{ background: '#fff', border: '1px solid #D2D2D7', borderRadius: 20, padding: '18px 22px', boxShadow: '0 1px 4px rgba(0,0,0,.04),0 4px 24px rgba(0,0,0,.06)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginBottom: 16 }}>
+              {/* Play / Pause */}
+              <button onClick={e => { e.preventDefault(); togglePlay(); }}
+                className={isPlaying ? 'play-btn-active' : ''}
+                style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '9px 20px', borderRadius: 14, border: 'none', background: isPlaying ? '#FF453A' : '#0071E3', color: '#fff', fontFamily: 'JetBrains Mono,monospace', fontSize: 12, fontWeight: 700, cursor: 'pointer', transition: 'background .2s,transform .15s,box-shadow .2s', minWidth: 110 }}
+                onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.04)'}
+                onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}>
+                {isPlaying ? '⏸ Pause' : (isDone ? '↺ Replay' : (currentIdx < 0 ? '▶ Play' : '▶ Resume'))}
+              </button>
+
+              {/* Step Back */}
+              <button onClick={e => { e.preventDefault(); stepBack(); }} disabled={!granularSteps || currentIdx <= 0 || isPlaying}
+                style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '9px 15px', borderRadius: 14, border: '1.5px solid #D2D2D7', background: '#fff', color: (!granularSteps || currentIdx <= 0 || isPlaying) ? '#C7C7CC' : '#1D1D1F', fontFamily: 'JetBrains Mono,monospace', fontSize: 12, fontWeight: 600, cursor: (!granularSteps || currentIdx <= 0 || isPlaying) ? 'not-allowed' : 'pointer', transition: 'all .15s' }}
+                onMouseEnter={e => { if (!e.currentTarget.disabled) e.currentTarget.style.borderColor = '#5E5CE6'; }}
+                onMouseLeave={e => e.currentTarget.style.borderColor = '#D2D2D7'}>
+                ‹ Step Back
+              </button>
+
+              {/* Step Forward */}
+              <button onClick={e => { e.preventDefault(); if (!granularSteps) { const gs = generateGranularSteps(dfa); const mr = minimizeDFA(dfa); setGranularSteps(gs); setMinResult(mr); goTo(0, gs, mr); } else stepForward(); }} disabled={isDone || isPlaying}
+                style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '9px 15px', borderRadius: 14, border: '1.5px solid #D2D2D7', background: '#fff', color: (isDone || isPlaying) ? '#C7C7CC' : '#1D1D1F', fontFamily: 'JetBrains Mono,monospace', fontSize: 12, fontWeight: 600, cursor: (isDone || isPlaying) ? 'not-allowed' : 'pointer', transition: 'all .15s' }}
+                onMouseEnter={e => { if (!e.currentTarget.disabled) e.currentTarget.style.borderColor = '#0071E3'; }}
+                onMouseLeave={e => e.currentTarget.style.borderColor = '#D2D2D7'}>
+                Step Forward ›
+              </button>
+
+              {/* Run All */}
+              <button onClick={() => { if (!granularSteps) { const gs = generateGranularSteps(dfa); const mr = minimizeDFA(dfa); setGranularSteps(gs); setMinResult(mr); goTo(gs.length - 1, gs, mr); } else runAll(); }} disabled={isDone || isPlaying}
+                style={{ padding: '9px 15px', borderRadius: 14, border: 'none', background: 'rgba(255,159,10,.12)', color: (isDone || isPlaying) ? '#C7C7CC' : '#FF9F0A', fontFamily: 'JetBrains Mono,monospace', fontSize: 12, fontWeight: 700, cursor: (isDone || isPlaying) ? 'not-allowed' : 'pointer', transition: 'all .15s' }}>
+                ⚡ Run All
+              </button>
+
+              {/* Reset */}
+              <button onClick={reset}
+                style={{ padding: '9px 15px', borderRadius: 14, border: '1.5px solid #D2D2D7', background: '#fff', color: '#6E6E73', fontFamily: 'JetBrains Mono,monospace', fontSize: 12, fontWeight: 600, cursor: 'pointer', transition: 'all .15s', marginLeft: 'auto' }}
+                onMouseEnter={e => { e.currentTarget.style.borderColor = '#FF453A'; e.currentTarget.style.color = '#FF453A'; }}
+                onMouseLeave={e => { e.currentTarget.style.borderColor = '#D2D2D7'; e.currentTarget.style.color = '#6E6E73'; }}>
+                ↺ Reset
+              </button>
+
+            </div>
+
+            {/* Wheel Progress Stepper */}
+            <div style={{ marginBottom: 14 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                <span style={{ fontFamily: 'JetBrains Mono,monospace', fontSize: 10, color: '#6E6E73', letterSpacing: '0.05em' }}>PROGRESS</span>
+                <span style={{ fontFamily: 'JetBrains Mono,monospace', fontSize: 10, color: '#6E6E73' }}>
+                  {currentIdx < 0 ? '—' : `Step ${currentIdx + 1} of ${total}`}
+                </span>
+              </div>
+              {granularSteps && wheelSteps.length > 0 ? (
+                <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 0' }}>
+                  {/* Connecting track */}
+                  <div style={{ position: 'absolute', left: 16, right: 16, top: '50%', transform: 'translateY(-50%)', height: 3, background: '#E8E8ED', borderRadius: 99, zIndex: 0 }} />
+                  {/* Filled portion */}
+                  <div style={{
+                    position: 'absolute', left: 16, top: '50%', transform: 'translateY(-50%)', height: 3, borderRadius: 99, zIndex: 0,
+                    background: 'linear-gradient(90deg,#5E5CE6,#0071E3)',
+                    width: (() => {
+                      if (currentIdx < 0 || wheelSteps.length < 2) return '0%';
+                      const activeWheelIdx = wheelSteps.filter(w => w.idx <= currentIdx).length - 1;
+                      const pct = activeWheelIdx < 0 ? 0 : Math.round((activeWheelIdx / (wheelSteps.length - 1)) * 100);
+                      return `calc(${pct}% * (100% - 32px) / 100%)`;
+                    })(),
+                    transition: 'width .35s cubic-bezier(.4,0,.2,1)'
+                  }} />
+                  {wheelSteps.map((ws, wi) => {
+                    const isActive = ws.idx <= currentIdx;
+                    const isCurrent = (() => {
+                      // current wheel node = last milestone whose idx <= currentIdx
+                      const last = wheelSteps.filter(w => w.idx <= currentIdx).slice(-1)[0];
+                      return last && last.idx === ws.idx;
+                    })();
+                    const phaseC = { init: '#5E5CE6', base: '#FF9F0A', iter: '#0071E3', done: '#30D158' };
+                    const c = phaseC[ws.phase] || '#0071E3';
+                    return (
+                      <div key={ws.idx} style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5, cursor: 'pointer', userSelect: 'none' }}
+                        onClick={() => { if (!isPlaying) goTo(ws.idx); }}
+                        title={`Jump to: ${ws.label}`}>
+                        {/* Circle node */}
+                        <div style={{
+                          width: isCurrent ? 32 : 24, height: isCurrent ? 32 : 24,
+                          borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          background: isActive ? c : '#fff',
+                          border: `${isCurrent ? 3 : 2}px solid ${isActive ? c : '#D2D2D7'}`,
+                          boxShadow: isCurrent ? `0 0 0 4px ${c}22, 0 4px 12px ${c}44` : isActive ? `0 2px 6px ${c}33` : 'none',
+                          transition: 'all .25s cubic-bezier(.4,0,.2,1)',
+                          fontSize: isCurrent ? 13 : 10,
+                        }}>
+                          {isActive
+                            ? <span style={{ color: '#fff', fontWeight: 700, fontSize: isCurrent ? 12 : 9, fontFamily: 'JetBrains Mono,monospace' }}>{ws.phase === 'done' ? '✓' : wi + 1}</span>
+                            : <span style={{ color: '#D2D2D7', fontWeight: 600, fontSize: 9, fontFamily: 'JetBrains Mono,monospace' }}>{wi + 1}</span>}
+                        </div>
+                        {/* Label */}
+                        <span style={{
+                          fontFamily: 'JetBrains Mono,monospace', fontSize: 8, fontWeight: isCurrent ? 700 : 500,
+                          color: isCurrent ? c : isActive ? '#6E6E73' : '#C7C7CC',
+                          whiteSpace: 'nowrap', transition: 'color .2s', letterSpacing: '0.03em'
+                        }}>{ws.label}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div style={{ height: 6, background: '#E8E8ED', borderRadius: 99, overflow: 'hidden' }}>
+                  <div className="prog-fill" style={{ height: '100%', borderRadius: 99, background: 'linear-gradient(90deg,#5E5CE6,#0071E3)', width: `${progress}%` }} />
+                </div>
+              )}
+            </div>
+
+            {/* Speed Slider */}
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                <span style={{ fontFamily: 'JetBrains Mono,monospace', fontSize: 10, color: '#6E6E73', letterSpacing: '0.05em' }}>ANIMATION SPEED</span>
+                <span style={{ fontFamily: 'JetBrains Mono,monospace', fontSize: 10, color: '#0071E3', fontWeight: 600 }}>
+                  {speed < 20 ? '🐢 Slow' : speed < 50 ? '🚶 Normal' : speed < 80 ? '🏃 Fast' : '⚡ Turbo'}
+                </span>
+              </div>
+              <div style={{ position: 'relative', paddingBottom: 18 }}>
+                <input type="range" min="0" max="100" value={speed}
+                  onChange={e => setSpeed(Number(e.target.value))}
+                  className="speed-track"
+                  style={{ '--fill': `${speed}%` }} />
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4 }}>
+                  {['Slow', 'Normal', 'Fast', 'Turbo'].map((l, i) => (
+                    <span key={l} style={{ fontFamily: 'JetBrains Mono,monospace', fontSize: 9, color: speed >= i * 33 && speed < (i + 1) * 33 + 1 ? '#0071E3' : '#C7C7CC', transition: 'color .2s', userSelect: 'none' }}>{l}</span>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div style={{ display: 'grid', gap: 20, gridTemplateColumns: '1fr 1fr' }}>
+            {/* MN Table */}
+            <div style={{ background: '#fff', border: '1px solid #D2D2D7', borderTop: '3px solid #0071E3', borderRadius: 20, padding: 24, boxShadow: '0 1px 4px rgba(0,0,0,.04),0 4px 24px rgba(0,0,0,.06)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+                <div>
+                  <h2 style={{ fontFamily: 'JetBrains Mono,monospace', fontSize: 10, fontWeight: 700, color: '#6E6E73', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Distinguishability Table</h2>
+                  <div style={{ fontFamily: 'JetBrains Mono,monospace', fontSize: 9, color: '#6E6E73', marginTop: 2 }}>Myhill-Nerode</div>
+                </div>
+                {curStep && (
+                  <div style={{ fontFamily: 'JetBrains Mono,monospace', fontSize: 10, fontWeight: 700, padding: '4px 12px', borderRadius: 99, background: `${phaseColors[curStep.phase]}18`, color: phaseColors[curStep.phase], border: `1px solid ${phaseColors[curStep.phase]}40` }}>
+                    {phaseLabels[curStep.phase]}
+                  </div>
+                )}
+              </div>
+              {/* ── Inline mini-controls (keeps Pause/Prev/Next near the table) ── */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14, flexWrap: 'wrap' }}>
+                <button
+                  onClick={e => { e.preventDefault(); togglePlay(); }}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 5,
+                    padding: '6px 14px', borderRadius: 10, border: 'none',
+                    background: isPlaying ? '#FF453A' : '#0071E3',
+                    color: '#fff', fontFamily: 'JetBrains Mono,monospace',
+                    fontSize: 11, fontWeight: 700, cursor: 'pointer',
+                    transition: 'background .2s', minWidth: 90,
+                  }}>
+                  {isPlaying ? '⏸ Pause' : (isDone ? '↺ Replay' : (currentIdx < 0 ? '▶ Play' : '▶ Resume'))}
+                </button>
+                <button
+                  onClick={e => { e.preventDefault(); stepBack(); }}
+                  disabled={!granularSteps || currentIdx <= 0 || isPlaying}
+                  style={{
+                    padding: '6px 12px', borderRadius: 10,
+                    border: '1.5px solid #D2D2D7', background: '#fff',
+                    color: (!granularSteps || currentIdx <= 0 || isPlaying) ? '#C7C7CC' : '#1D1D1F',
+                    fontFamily: 'JetBrains Mono,monospace', fontSize: 11, fontWeight: 600,
+                    cursor: (!granularSteps || currentIdx <= 0 || isPlaying) ? 'not-allowed' : 'pointer',
+                    transition: 'all .15s',
+                  }}>
+                  ‹ Prev
+                </button>
+                <button
+                  onClick={e => {
+                    e.preventDefault();
+                    if (!granularSteps) {
+                      const gs = generateGranularSteps(dfa);
+                      const mr = minimizeDFA(dfa);
+                      setGranularSteps(gs); setMinResult(mr); goTo(0, gs, mr);
+                    } else stepForward();
+                  }}
+                  disabled={isDone || isPlaying}
+                  style={{
+                    padding: '6px 12px', borderRadius: 10,
+                    border: '1.5px solid #D2D2D7', background: '#fff',
+                    color: (isDone || isPlaying) ? '#C7C7CC' : '#1D1D1F',
+                    fontFamily: 'JetBrains Mono,monospace', fontSize: 11, fontWeight: 600,
+                    cursor: (isDone || isPlaying) ? 'not-allowed' : 'pointer',
+                    transition: 'all .15s',
+                  }}>
+                  Next ›
+                </button>
+                {currentIdx >= 0 && (
+                  <span style={{ fontFamily: 'JetBrains Mono,monospace', fontSize: 9, color: '#6E6E73', marginLeft: 4 }}>
+                    {currentIdx + 1} / {total}
+                  </span>
+                )}
+              </div>
+
+              {tableHTML
+                ? <div ref={tableContainerRef} style={{ position: 'relative' }}>
+                    {/* Focused Pair Overlay Banner */}
+                    {focusedPair && granularSteps && (() => {
+                      const [pi, pj] = focusedPair.split(',').map(Number);
+                      const si = (curStep?.tableStates || dfa.states)[pi];
+                      const sj = (curStep?.tableStates || dfa.states)[pj];
+                      // Find which rounds have steps that reference this pair
+                      const roundsWithPair = [];
+                      granularSteps.forEach((s, idx) => {
+                        if (s.highlighted === focusedPair || (s.newlyMarked && s.newlyMarked.includes(focusedPair))) {
+                          const label = s.phase === 'base-check' || s.phase === 'base' ? 'Base' : s.phase === 'init' ? 'Init' : s.phase === 'done' ? 'Done' : `R${s.round}`;
+                          if (!roundsWithPair.find(r => r.label === label)) {
+                            roundsWithPair.push({ idx, label, phase: s.phase, isNewly: s.newlyMarked && s.newlyMarked.includes(focusedPair) });
+                          }
+                        }
+                      });
+                      return (
+                        <div style={{
+                          marginBottom: 10, padding: '10px 14px', borderRadius: 14,
+                          background: 'rgba(48,209,88,0.07)', border: '1.5px solid rgba(48,209,88,0.35)',
+                          display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap',
+                          animation: 'fadeUp 0.25s cubic-bezier(.16,1,.3,1) forwards'
+                        }}>
+                          <span style={{ fontFamily: 'JetBrains Mono,monospace', fontSize: 10, color: '#6E6E73' }}>Pair</span>
+                          <span style={{ fontFamily: 'JetBrains Mono,monospace', fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 8, background: '#fff', border: '1.5px solid rgba(48,209,88,.4)', color: '#1a8a3a' }}>{si} ↔ {sj}</span>
+                          <span style={{ fontFamily: 'JetBrains Mono,monospace', fontSize: 9, color: '#6E6E73' }}>appears in:</span>
+                          {roundsWithPair.length > 0 ? roundsWithPair.map(r => (
+                            <button key={r.label} onClick={() => { if (!isPlaying) goTo(r.idx); }}
+                              style={{
+                                fontFamily: 'JetBrains Mono,monospace', fontSize: 9, fontWeight: 700,
+                                padding: '3px 10px', borderRadius: 99, border: 'none', cursor: 'pointer',
+                                background: 'rgba(48,209,88,0.15)', color: '#1a8a3a',
+                                border: '1px solid rgba(48,209,88,0.4)',
+                                transition: 'all .15s'
+                              }}
+                              title={`Jump to step ${r.idx + 1}`}>
+                              ● {r.label}
+                            </button>
+                          )) : <span style={{ fontFamily: 'JetBrains Mono,monospace', fontSize: 9, color: '#C7C7CC' }}>no rounds yet</span>}
+                          <button onClick={() => setFocusedPair(null)}
+                            style={{
+                              marginLeft: 'auto', width: 22, height: 22, borderRadius: '50%', border: 'none',
+                              background: 'rgba(0,0,0,0.06)', color: '#6E6E73', cursor: 'pointer',
+                              fontFamily: 'system-ui', fontSize: 14, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                              transition: 'all .15s', lineHeight: 1
+                            }}
+                            onMouseEnter={e => { e.currentTarget.style.background='rgba(255,69,58,0.12)'; e.currentTarget.style.color='#FF453A'; }}
+                            onMouseLeave={e => { e.currentTarget.style.background='rgba(0,0,0,0.06)'; e.currentTarget.style.color='#6E6E73'; }}
+                            title="Clear selection">×</button>
+                        </div>
+                      );
+                    })()}
+                    <style>{`
+                      [data-pkey].mn-cell { transition: background .2s, box-shadow .2s, border-color .2s; }
+                      [data-pkey].mn-cell:hover { box-shadow: 0 0 0 2px rgba(48,209,88,0.5); border-color: rgba(48,209,88,0.6) !important; background: rgba(48,209,88,0.06) !important; }
+                      ${focusedPair ? `[data-pkey="${focusedPair}"].mn-cell { background: rgba(48,209,88,0.18) !important; border-color: #30D158 !important; border-width: 2px !important; box-shadow: 0 0 0 3px rgba(48,209,88,0.25) !important; transform: scale(1.12); }` : ''}
+                    `}</style>
+                    <div dangerouslySetInnerHTML={{ __html: tableHTML }} />
+                  </div>
+                : <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: 160, gap: 8 }}>
+                  <div style={{ fontSize: 32, opacity: .2 }}>⬜</div>
+                  <p style={{ fontFamily: 'JetBrains Mono,monospace', fontSize: 11, color: '#C7C7CC', textAlign: 'center' }}>Press Play or Step Forward<br />to start the algorithm.</p>
+                </div>
+              }
+              {/* Hint */}
+              {tableHTML && !focusedPair && (
+                <div style={{ fontFamily: 'JetBrains Mono,monospace', fontSize: 9, color: '#C7C7CC', marginTop: 8, textAlign: 'center' }}>
+                  Click any cell to trace that pair across all rounds
+                </div>
+              )}
+              {/* Legend */}
+              <div style={{ display: 'flex', gap: 14, marginTop: 16, flexWrap: 'wrap' }}>
+                {[
+                  { bg: 'rgba(0,113,227,.1)', border: '#0071E3', color: '#0071E3', label: 'Checking' },
+                  { bg: 'rgba(255,159,10,.12)', border: '#FF9F0A', color: '#FF9F0A', label: 'Marking' },
+                  { bg: '#dcfce7', border: '#86efac', color: '#30D158', label: 'Newly marked' },
+                  { bg: '#f0fdf4', border: '#D2D2D7', color: '#30D158', label: 'Marked' },
+                  { bg: '#fff', border: '#D2D2D7', color: '#6E6E73', label: 'Unmarked' },
+                  { bg: 'rgba(48,209,88,0.18)', border: '#30D158', color: '#1a8a3a', label: 'Selected pair' },
+                ].map(l => (
+                  <div key={l.label} style={{ display: 'flex', alignItems: 'center', gap: 5, fontFamily: 'JetBrains Mono,monospace', fontSize: 9, color: '#6E6E73' }}>
+                    <div style={{ width: 16, height: 16, background: l.bg, border: `1.5px solid ${l.border}`, borderRadius: 3, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, color: l.color }}>✓</div>
+                    {l.label}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Explanation Panel */}
+            <div style={{ background: '#fff', border: '1px solid #D2D2D7', borderTop: '3px solid #5E5CE6', borderRadius: 20, padding: 24, boxShadow: '0 1px 4px rgba(0,0,0,.04),0 4px 24px rgba(0,0,0,.06)', display: 'flex', flexDirection: 'column', gap: 0 }}>
+              <h2 style={{ fontFamily: 'JetBrains Mono,monospace', fontSize: 10, fontWeight: 700, color: '#6E6E73', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 16 }}>Step Explanation</h2>
+
+              {curStep ? (
+                <div key={currentIdx} className="explain-card" ref={explainRef} style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 14 }}>
+                  {/* Headline */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <div style={{ width: 36, height: 36, borderRadius: 10, background: `${phaseColors[curStep.phase]}15`, border: `1.5px solid ${phaseColors[curStep.phase]}35`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, flexShrink: 0 }}>
+                      {curStep.phase === 'init' ? '🗂' : curStep.phase.includes('base') ? '🔍' : curStep.phase === 'done' ? '✅' : '⚙'}
+                    </div>
+                    <div>
+                      <div style={{ fontFamily: 'JetBrains Mono,monospace', fontSize: 12, fontWeight: 700, color: '#1D1D1F', lineHeight: 1.3 }}>{curStep.headline}</div>
+                      <div style={{ fontFamily: 'JetBrains Mono,monospace', fontSize: 9, color: '#6E6E73', marginTop: 2 }}>Round {curStep.round}</div>
+                    </div>
+                    {curStep.badge && (
+                      <div style={{ marginLeft: 'auto', fontFamily: 'JetBrains Mono,monospace', fontSize: 10, fontWeight: 700, padding: '3px 10px', borderRadius: 99, background: `${curStep.badgeColor}18`, color: curStep.badgeColor, border: `1px solid ${curStep.badgeColor}40`, whiteSpace: 'nowrap' }}>
+                        {curStep.badge}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Explanation text */}
+                  <div style={{ fontFamily: 'JetBrains Mono,monospace', fontSize: 11, color: '#3a3a3c', lineHeight: 1.75, background: '#F5F5F7', borderRadius: 12, padding: '12px 14px', border: '1px solid #E8E8ED' }}
+                    dangerouslySetInnerHTML={{ __html: curStep.explanation }} />
+
+                  {/* Pair state chips if checking */}
+                  {curStep.highlighted && (() => {
+                    const [pi, pj] = curStep.highlighted.split(',').map(Number);
+                    const si = dfa.states[pi], sj = dfa.states[pj];
+                    const isMarked = curStep.marked[curStep.highlighted];
+                    return (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px', background: curStep.isCheckingMarked ? 'rgba(255,159,10,.06)' : 'rgba(0,113,227,.05)', borderRadius: 12, border: `1px solid ${curStep.isCheckingMarked ? 'rgba(255,159,10,.25)' : 'rgba(0,113,227,.2)'}` }}>
+                        <div style={{ fontFamily: 'JetBrains Mono,monospace', fontSize: 9, color: '#6E6E73', textTransform: 'uppercase', letterSpacing: '0.06em', marginRight: 4 }}>Pair</div>
+                        <div style={{ fontFamily: 'JetBrains Mono,monospace', fontSize: 12, fontWeight: 700, padding: '4px 11px', borderRadius: 8, background: '#fff', border: '1.5px solid #D2D2D7', color: '#0071E3' }}>{si}</div>
+                        <div style={{ fontFamily: 'JetBrains Mono,monospace', fontSize: 14, color: '#C7C7CC' }}>↔</div>
+                        <div style={{ fontFamily: 'JetBrains Mono,monospace', fontSize: 12, fontWeight: 700, padding: '4px 11px', borderRadius: 8, background: '#fff', border: '1.5px solid #D2D2D7', color: '#0071E3' }}>{sj}</div>
+                        {isMarked && <div style={{ marginLeft: 'auto', fontFamily: 'JetBrains Mono,monospace', fontSize: 10, fontWeight: 700, padding: '3px 10px', borderRadius: 99, background: 'rgba(48,209,88,.1)', color: '#1a8a3a', border: '1px solid rgba(48,209,88,.3)' }}>✓ Marked</div>}
+                      </div>
+                    );
+                  })()}
+
+                  {/* Progress within round for iteration */}
+                  {curStep.phase === 'iter-check' && (
+                    <div style={{ fontFamily: 'JetBrains Mono,monospace', fontSize: 9, color: '#6E6E73', display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#0071E3', animation: 'pulse-green 1.5s ease-in-out infinite' }} />
+                      Iterative pass · Round {curStep.round}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, minHeight: 200 }}>
+                  <div style={{ width: 52, height: 52, borderRadius: 14, background: 'rgba(94,92,230,.07)', border: '1.5px solid rgba(94,92,230,.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24 }}>🧮</div>
+                  <div style={{ textAlign: 'center' }}>
+                    <div style={{ fontFamily: 'JetBrains Mono,monospace', fontSize: 12, fontWeight: 600, color: '#1D1D1F', marginBottom: 4 }}>Ready to Minimize</div>
+                    <div style={{ fontFamily: 'JetBrains Mono,monospace', fontSize: 10, color: '#6E6E73', lineHeight: 1.6 }}>Press <strong>Play</strong> for auto-animation<br />or <strong>Step Forward</strong> for manual control.</div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Grouping Phase Panel */}
+          {isDone && minResult && (
+            <GroupingPhasePanel dfa={dfa} minResult={minResult} />
+          )}
+
+          {/* Original graph with group coloring */}
+          {isDone && minResult && (
+            <div style={{ background: '#fff', border: '1px solid #D2D2D7', borderTop: '3px solid #FF9F0A', borderRadius: 20, padding: 20, boxShadow: '0 1px 4px rgba(0,0,0,.04),0 4px 24px rgba(0,0,0,.06)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+                <h2 style={{ fontFamily: 'JetBrains Mono,monospace', fontSize: 10, fontWeight: 700, color: '#6E6E73', textTransform: 'uppercase', letterSpacing: '0.08em', display: 'flex', alignItems: 'center', gap: 14 }}>
+                  Original DFA — Equivalence Groups
+                </h2>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  {minResult.finalPartitions.map((g, i) => (
+                    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 5, fontFamily: 'JetBrains Mono,monospace', fontSize: 10, color: GROUP_COLORS[i % GROUP_COLORS.length] }}>
+                      <div style={{ width: 8, height: 8, borderRadius: '50%', background: GROUP_COLORS[i % GROUP_COLORS.length] }} />
+                      {'{' + g.join(',') + '}'}
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <ForceGraph dfa={dfa} groupColorMap={groupColorMap} height={300} />
+            </div>
+          )}
+
+          {/* Result */}
+          <div style={{ background: '#fff', border: '1px solid #D2D2D7', borderTop: '3px solid #30D158', borderRadius: 20, padding: 24, boxShadow: '0 1px 4px rgba(0,0,0,.04),0 4px 24px rgba(0,0,0,.06)' }}>
+            <h2 style={{ fontFamily: 'JetBrains Mono,monospace', fontSize: 10, fontWeight: 700, color: '#6E6E73', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
+              Minimized DFA
+              {isDone && minResult && <span style={{ fontFamily: 'JetBrains Mono,monospace', fontSize: 9, fontWeight: 700, padding: '3px 10px', borderRadius: 99, background: 'rgba(48,209,88,.1)', color: '#1a8a3a', border: '1px solid rgba(48,209,88,.3)' }}>Done ✓</span>}
+            </h2>
+            {isDone && minResult
+              ? <MinResultDisplay minResult={minResult} originalDFA={dfa} showGraph={true} />
+              : <p style={{ fontFamily: 'JetBrains Mono,monospace', fontSize: 11, color: '#C7C7CC' }}>Complete all steps to see the minimized DFA.</p>}
+          </div>
+        </div>
+      );
+    }
+
+    /* ═══════════════════════════════
+       GROUPING PHASE PANEL
+    ═══════════════════════════════ */
+    function GroupingPhasePanel({ dfa, minResult }) {
+      const [phase, setPhase] = useState('pairs'); // 'pairs' | 'groups' | 'transitions'
+      const states = dfa.states;
+      const n = states.length;
+      const finalMarked = minResult.steps[minResult.steps.length - 1]?.marked || {};
+
+      // Collect all unmarked pairs
+      const unmarkedPairs = [];
+      for (let i = 0; i < n; i++) {
+        for (let j = i + 1; j < n; j++) {
+          if (!finalMarked[`${i},${j}`]) {
+            unmarkedPairs.push([states[i], states[j]]);
+          }
+        }
+      }
+
+      const { finalPartitions } = minResult;
+      const hasGroups = finalPartitions.some(g => g.length > 1);
+
+      // Build transition table for minimized DFA
+      const minDFA = minResult.minDFA;
+      const labelMap = {};
+      finalPartitions.forEach((g, i) => { labelMap[`M${i}`] = `{${g.join(',')}}`; });
+
+      return (
+        <div style={{ background: '#fff', border: '1px solid #D2D2D7', borderTop: '3px solid #FF9F0A', borderRadius: 20, padding: 24, boxShadow: '0 1px 4px rgba(0,0,0,.04),0 4px 24px rgba(0,0,0,.06)' }}>
+          {/* Header */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
+            <div>
+              <h2 style={{ fontFamily: 'JetBrains Mono,monospace', fontSize: 10, fontWeight: 700, color: '#6E6E73', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Grouping Phase</h2>
+              <div style={{ fontFamily: 'JetBrains Mono,monospace', fontSize: 9, color: '#6E6E73', marginTop: 2 }}>Merge indistinguishable states</div>
+            </div>
+            {/* Phase stepper tabs */}
+            <div style={{ display: 'flex', gap: 4, background: '#F5F5F7', borderRadius: 12, padding: 4 }}>
+              {[['pairs', '① Unmarked Pairs'], ['groups', '② Equivalence Groups'], ['transitions', '③ New Transitions']].map(([p, lbl]) => (
+                <button key={p} onClick={() => setPhase(p)}
+                  style={{
+                    padding: '5px 10px', borderRadius: 8, border: 'none', cursor: 'pointer',
+                    fontFamily: 'JetBrains Mono,monospace', fontSize: 9.5, fontWeight: 600,
+                    background: phase === p ? '#FF9F0A' : 'transparent',
+                    color: phase === p ? '#fff' : '#6E6E73', transition: 'all .2s'
+                  }}>
+                  {lbl}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Phase: Unmarked Pairs */}
+          {phase === 'pairs' && (
+            <div>
+              <div style={{ fontFamily: 'JetBrains Mono,monospace', fontSize: 10, color: '#6E6E73', marginBottom: 12, lineHeight: 1.7 }}>
+                These <strong style={{ color: '#1D1D1F' }}>{unmarkedPairs.length}</strong> pair{unmarkedPairs.length !== 1 ? 's' : ''} remained <span style={{ color: '#30D158', fontWeight: 700 }}>unmarked</span> after all rounds — they cannot be distinguished, so they will be merged.
+              </div>
+              {unmarkedPairs.length === 0 ? (
+                <div style={{ fontFamily: 'JetBrains Mono,monospace', fontSize: 11, color: '#C7C7CC', textAlign: 'center', padding: '24px 0' }}>All pairs were marked — the DFA is already minimal!</div>
+              ) : (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                  {unmarkedPairs.map(([a, b], idx) => (
+                    <div key={`${a}-${b}`} className="pair-chip"
+                      style={{
+                        animationDelay: `${idx * 50}ms`, display: 'inline-flex', alignItems: 'center', gap: 6,
+                        padding: '7px 12px', borderRadius: 10,
+                        background: 'rgba(48,209,88,0.06)', border: '1.5px solid rgba(48,209,88,0.25)',
+                        fontFamily: 'JetBrains Mono,monospace', fontSize: 11, fontWeight: 600, color: '#1a8a3a'
+                      }}>
+                      <span>{a}</span><span style={{ color: '#C7C7CC', fontWeight: 400 }}>≡</span><span>{b}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <div style={{ marginTop: 16, display: 'flex', justifyContent: 'flex-end' }}>
+                <button onClick={() => setPhase('groups')}
+                  style={{
+                    padding: '8px 16px', borderRadius: 10, border: 'none', background: '#FF9F0A', color: '#fff',
+                    fontFamily: 'JetBrains Mono,monospace', fontSize: 11, fontWeight: 700, cursor: 'pointer'
+                  }}>
+                  Form Groups →
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Phase: Equivalence Groups */}
+          {phase === 'groups' && (
+            <div>
+              <div style={{ fontFamily: 'JetBrains Mono,monospace', fontSize: 10, color: '#6E6E73', marginBottom: 16, lineHeight: 1.7 }}>
+                States in the same equivalence class are merged into a <strong style={{ color: '#1D1D1F' }}>single state</strong> in the minimized DFA.
+              </div>
+              <div style={{ display: 'grid', gap: 10, gridTemplateColumns: 'repeat(auto-fill,minmax(200px,1fr))' }}>
+                {finalPartitions.map((g, i) => {
+                  const color = GROUP_COLORS[i % GROUP_COLORS.length];
+                  const isAccept = g.some(s => dfa.accept.has(s));
+                  const isStart = g.includes(dfa.start);
+                  return (
+                    <div key={i} className="group-card"
+                      style={{
+                        animationDelay: `${i * 80}ms`,
+                        padding: '14px 16px', borderRadius: 14,
+                        background: `${color}0d`, border: `1.5px solid ${color}40`
+                      }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+                        <div style={{ fontFamily: 'JetBrains Mono,monospace', fontSize: 14, fontWeight: 800, color }}>
+                          M{i}
+                        </div>
+                        <div style={{ display: 'flex', gap: 4 }}>
+                          {isStart && <span style={{ fontFamily: 'JetBrains Mono,monospace', fontSize: 8, fontWeight: 700, padding: '2px 7px', borderRadius: 99, background: '#FF9F0A22', color: '#FF9F0A', border: '1px solid #FF9F0A40' }}>START</span>}
+                          {isAccept && <span style={{ fontFamily: 'JetBrains Mono,monospace', fontSize: 8, fontWeight: 700, padding: '2px 7px', borderRadius: 99, background: `${color}22`, color, border: `1px solid ${color}40` }}>ACCEPT</span>}
+                        </div>
+                      </div>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
+                        {g.map(s => (
+                          <span key={s} style={{
+                            fontFamily: 'JetBrains Mono,monospace', fontSize: 11, fontWeight: 600,
+                            padding: '4px 9px', borderRadius: 7, background: '#fff',
+                            border: `1.5px solid ${color}50`, color: '#1D1D1F'
+                          }}>{s}</span>
+                        ))}
+                      </div>
+                      {g.length > 1 && (
+                        <div style={{ marginTop: 8, fontFamily: 'JetBrains Mono,monospace', fontSize: 9, color, opacity: 0.8 }}>
+                          ↳ {g.length} states merged
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+              <div style={{ marginTop: 16, display: 'flex', justifyContent: 'flex-end' }}>
+                <button onClick={() => setPhase('transitions')}
+                  style={{
+                    padding: '8px 16px', borderRadius: 10, border: 'none', background: '#FF9F0A', color: '#fff',
+                    fontFamily: 'JetBrains Mono,monospace', fontSize: 11, fontWeight: 700, cursor: 'pointer'
+                  }}>
+                  See Transitions →
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Phase: New Transitions */}
+          {phase === 'transitions' && (
+            <div>
+              <div style={{ fontFamily: 'JetBrains Mono,monospace', fontSize: 10, color: '#6E6E73', marginBottom: 14, lineHeight: 1.7 }}>
+                Each merged state's transitions are inherited from any representative of its group. This gives us the complete minimized DFA δ.
+              </div>
+              <div style={{ overflowX: 'auto' }}>
+                <table className="dfa-table" style={{ marginBottom: 0 }}>
+                  <thead>
+                    <tr>
+                      <th>State (group)</th>
+                      {minDFA.alphabet.map(a => <th key={a}>{a}</th>)}
+                      <th>Accept?</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {minDFA.states.map((ms, i) => {
+                      const color = GROUP_COLORS[i % GROUP_COLORS.length];
+                      const isStart = minDFA.start === ms;
+                      const isAcc = minDFA.accept.has(ms);
+                      return (
+                        <tr key={ms}>
+                          <td style={{ fontWeight: 700, color, textAlign: 'left', paddingLeft: 14 }}>
+                            {isStart ? '→ ' : '  '}{ms} = {labelMap[ms]}
+                          </td>
+                          {minDFA.alphabet.map(sym => {
+                            const dest = minDFA.trans(ms, sym);
+                            const di = minDFA.states.indexOf(dest);
+                            return (
+                              <td key={sym} style={{ color: dest ? GROUP_COLORS[di % GROUP_COLORS.length] : '#C7C7CC', fontWeight: 600 }}>
+                                {dest || '—'}
+                              </td>
+                            );
+                          })}
+                          <td>
+                            {isAcc
+                              ? <span style={{ fontFamily: 'JetBrains Mono,monospace', fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 99, background: 'rgba(48,209,88,0.1)', color: '#1a8a3a', border: '1px solid rgba(48,209,88,0.3)' }}>✓</span>
+                              : <span style={{ color: '#D2D2D7' }}>—</span>}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    function MinResultDisplay({ minResult, originalDFA, showGraph }) {
+      const { minDFA, finalPartitions } = minResult;
+      const labelMap = {};
+      finalPartitions.forEach((g, i) => { labelMap[`M${i}`] = `{${g.join(',')}}`; });
+      const acc = [...minDFA.accept];
+      const equivGroups = finalPartitions.filter(g => g.length > 1);
+      const origN = originalDFA.states.length, minN = minDFA.states.length;
+      const pct = origN > 0 ? Math.round((1 - minN / origN) * 100) : 0;
+      return (
+        <div>
+          <div className="grid gap-4 mb-4 grid-2col" style={{ gridTemplateColumns: '1fr 1fr' }}>
+            {[
+              { label: `States (${minDFA.states.length})`, val: minDFA.states.map(s => `${s} = ${labelMap[s]}`).join(', ') },
+              { label: 'Alphabet', val: minDFA.alphabet.join(', ') },
+              { label: 'Start State', val: `${minDFA.start} = ${labelMap[minDFA.start]}` },
+              { label: 'Accept States', val: acc.map(s => `${s} = ${labelMap[s]}`).join(', ') || '∅' },
+            ].map(item => (
+              <div key={item.label}>
+                <div className="font-mono text-[11px] font-semibold text-[#5E5CE6] mb-1">{item.label}</div>
+                <div className="font-mono text-xs text-[#1D1D1F]">{item.val}</div>
+              </div>
+            ))}
+          </div>
+          {equivGroups.length > 0 && (
+            <div className="mb-4">
+              <div className="font-mono text-[11px] text-[#6E6E73] mb-2">Merged equivalence classes:</div>
+              <div className="flex flex-wrap gap-2">{equivGroups.map((g, i) => <div key={i} className="mn-equiv-class">{`{${g.join(', ')}}`}</div>)}</div>
+            </div>
+          )}
+          <div className="grid gap-3 mb-5 grid-2col" style={{ gridTemplateColumns: 'repeat(3,1fr)' }}>
+            <div className="stat-box"><span className="stat-val">{origN}</span><div className="stat-label">Original States</div></div>
+            <div className="stat-box"><span className="stat-val">{minN}</span><div className="stat-label">Minimized States</div></div>
+            <div className={`stat-box ${pct > 0 ? 'reduction' : 'no-reduction'}`}><span className="stat-val">{pct}%</span><div className="stat-label">{pct > 0 ? 'State Reduction' : 'No Reduction'}</div></div>
+          </div>
+          {showGraph && <ForceGraph dfa={minDFA} groups={minDFA.states.map(s => [s])} height={300} />}
+        </div>
+      );
+    }
+
+    /* ═══════════════════════════════
+       SIMULATE TAB  (DUAL SIM — SHARED INPUT)
+    ═══════════════════════════════ */
+    function SimulateTab({ dfa, minResult }) {
+      const [input, setInput] = useState('');
+      const [stepIdx, setStepIdx] = useState(-1);
+      const [playing, setPlaying] = useState(false);
+      const playRef = useRef(null);
+
+      const origSim = useMemo(() => (input !== '' && dfa) ? simulateDFA(dfa, input) : null, [input, dfa]);
+      const minSim = useMemo(() => (input !== '' && minResult) ? simulateDFA(minResult.minDFA, input) : null, [input, minResult]);
+
+      const maxStep = origSim ? origSim.path.length - 1 : 0;
+
+      const goToStep = useCallback(idx => {
+        setStepIdx(Math.max(-1, Math.min(idx, maxStep)));
+      }, [maxStep]);
+
+      // Auto-play
+      useEffect(() => {
+        if (!playing) { clearInterval(playRef.current); return; }
+        playRef.current = setInterval(() => {
+          setStepIdx(prev => {
+            if (prev >= maxStep) { setPlaying(false); return prev; }
+            return prev + 1;
+          });
+        }, 650);
+        return () => clearInterval(playRef.current);
+      }, [playing, maxStep]);
+
+      const onInputChange = e => {
+        setInput(e.target.value);
+        setStepIdx(-1);
+        setPlaying(false);
+      };
+
+      // Highlight states
+      const origHL = useMemo(() => {
+        if (!origSim || stepIdx < 0) return new Set();
+        const s = origSim.path[Math.min(stepIdx, origSim.path.length - 1)].state;
+        return s ? new Set([s]) : new Set();
+      }, [origSim, stepIdx]);
+
+      const minHL = useMemo(() => {
+        if (!minSim || stepIdx < 0) return new Set();
+        const s = minSim.path[Math.min(stepIdx, minSim.path.length - 1)].state;
+        return s ? new Set([s]) : new Set();
+      }, [minSim, stepIdx]);
+
+      if (!dfa) return (
+        <div className="animate-tab-in flex flex-col items-center justify-center py-24 text-center">
+          <div className="text-5xl mb-4">▶</div>
+          <p className="text-[#6E6E73] font-mono text-sm">Build a DFA on the <strong className="text-[#1D1D1F]">① Build</strong> tab first.</p>
+        </div>
+      );
+
+      const curOrigState = origSim && stepIdx >= 0 ? origSim.path[Math.min(stepIdx, origSim.path.length - 1)] : null;
+      const curMinState = minSim && stepIdx >= 0 ? minSim.path[Math.min(stepIdx, minSim.path.length - 1)] : null;
+
+      const bothDone = stepIdx === maxStep && origSim && minSim;
+      const agree = bothDone && origSim.accepted === minSim.accepted;
+
+      return (
+        <div className="animate-tab-in flex flex-col gap-5">
+          {/* Shared input + controls */}
+          <div className="bg-white border border-[#D2D2D7] rounded-2xl px-5 py-4 shadow-card" style={{ borderTop: '3px solid #5E5CE6' }}>
+            <div className="font-mono text-xs font-bold text-[#6E6E73] uppercase tracking-widest mb-3">
+              Synchronized Test — runs both DFAs simultaneously
+            </div>
+            <input value={input} onChange={onInputChange} placeholder="Type a string to run on both DFAs simultaneously…"
+              className="mono-input" style={{ marginBottom: 12 }} />
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+              {[
+                { lbl: '⏮', fn: () => { setPlaying(false); goToStep(0); } },
+                { lbl: '‹', fn: () => goToStep(stepIdx - 1) },
+                { lbl: playing ? '⏸ Pause' : '▶ Play', fn: () => setPlaying(p => !p), primary: true },
+                { lbl: '›', fn: () => goToStep(stepIdx + 1) },
+                { lbl: '⏭', fn: () => { setPlaying(false); goToStep(maxStep); } },
+              ].map((b, i) => (
+                <button key={i} onClick={b.fn} disabled={!origSim && b.lbl !== (playing ? '⏸ Pause' : '▶ Play')}
+                  style={{
+                    fontFamily: 'JetBrains Mono,monospace', fontSize: 12, fontWeight: b.primary ? 700 : 500, padding: b.primary ? '8px 18px' : '7px 12px', borderRadius: 10, border: 'none',
+                    background: b.primary ? '#0071E3' : '#F5F5F7', color: b.primary ? '#fff' : '#1D1D1F', cursor: 'pointer', transition: 'all .2s'
+                  }}>
+                  {b.lbl}
+                </button>
+              ))}
+              <span style={{ fontFamily: 'JetBrains Mono,monospace', fontSize: 11, color: '#6E6E73', marginLeft: 6 }}>
+                {origSim ? `Step ${Math.max(0, stepIdx)} / ${maxStep}` : 'Enter a string above'}
+              </span>
+              {/* Char indicator */}
+              {origSim && stepIdx >= 0 && stepIdx > 0 && origSim.path[stepIdx] && (
+                <span style={{ fontFamily: 'JetBrains Mono,monospace', fontSize: 11, color: '#5E5CE6', background: 'rgba(94,92,230,.08)', border: '1px solid rgba(94,92,230,.2)', borderRadius: 6, padding: '4px 10px' }}>
+                  Read: '{input[stepIdx - 1]}'
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* Dual graphs */}
+          <div className="grid gap-5 grid-2col" style={{ gridTemplateColumns: '1fr 1fr' }}>
+            {/* Original */}
+            <div className="sim-track-card" style={{ borderTop: '3px solid #FF9F0A' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                <div>
+                  <div style={{ fontFamily: 'JetBrains Mono,monospace', fontSize: 11, fontWeight: 700, color: '#FF9F0A', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Original DFA</div>
+                  <div style={{ fontFamily: 'JetBrains Mono,monospace', fontSize: 9, color: '#6E6E73', marginTop: 2 }}>{dfa.states.length} states</div>
+                </div>
+                {curOrigState && curOrigState.state && (
+                  <div style={{ fontFamily: 'JetBrains Mono,monospace', fontSize: 12, fontWeight: 700, color: '#FF9F0A', background: 'rgba(255,159,10,.08)', border: '1.5px solid rgba(255,159,10,.3)', borderRadius: 8, padding: '5px 12px' }}>
+                    {curOrigState.state}
+                  </div>
+                )}
+              </div>
+              <ForceGraph dfa={dfa} highlightStates={origHL} height={260} />
+              <PathChips sim={origSim} stepIdx={stepIdx} color="#FF9F0A" />
+              {bothDone && origSim && (
+                <div className={`sim-result ${origSim.accepted ? 'accepted' : 'rejected'}`} style={{ marginTop: 10 }}>
+                  {origSim.accepted ? '✓ ACCEPTED' : '✗ REJECTED'}
+                </div>
+              )}
+            </div>
+
+            {/* Minimized */}
+            <div className="sim-track-card" style={{ borderTop: '3px solid #0071E3' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                <div>
+                  <div style={{ fontFamily: 'JetBrains Mono,monospace', fontSize: 11, fontWeight: 700, color: '#0071E3', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Minimized DFA</div>
+                  <div style={{ fontFamily: 'JetBrains Mono,monospace', fontSize: 9, color: '#6E6E73', marginTop: 2 }}>
+                    {minResult ? `${minResult.minDFA.states.length} states` : 'run minimization first'}
+                  </div>
+                </div>
+                {curMinState && curMinState.state && (
+                  <div style={{ fontFamily: 'JetBrains Mono,monospace', fontSize: 12, fontWeight: 700, color: '#0071E3', background: 'rgba(0,113,227,.08)', border: '1.5px solid rgba(0,113,227,.3)', borderRadius: 8, padding: '5px 12px' }}>
+                    {curMinState.state}
+                  </div>
+                )}
+              </div>
+              {minResult
+                ? <ForceGraph dfa={minResult.minDFA} highlightStates={minHL} height={260} />
+                : <div style={{ height: 260, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#F5F5F7', borderRadius: 12, border: '1px solid #D2D2D7' }}>
+                  <p style={{ fontFamily: 'JetBrains Mono,monospace', fontSize: 12, color: '#C7C7CC', textAlign: 'center' }}>Minimize on tab ②<br />to enable dual-sim</p>
+                </div>
+              }
+              <PathChips sim={minSim} stepIdx={stepIdx} color="#0071E3" />
+              {bothDone && minSim && (
+                <div className={`sim-result ${minSim.accepted ? 'accepted' : 'rejected'}`} style={{ marginTop: 10 }}>
+                  {minSim.accepted ? '✓ ACCEPTED' : '✗ REJECTED'}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Visual proof banner */}
+          {bothDone && agree && (
+            <div style={{ background: 'linear-gradient(135deg,rgba(48,209,88,.08),rgba(0,113,227,.08))', border: '1.5px solid rgba(48,209,88,.4)', borderRadius: 16, padding: '16px 24px', display: 'flex', alignItems: 'center', gap: 16 }}>
+              <div style={{ fontSize: 28 }}>✓</div>
+              <div>
+                <div style={{ fontFamily: 'JetBrains Mono,monospace', fontSize: 13, fontWeight: 700, color: '#1a8a3a', marginBottom: 4 }}>
+                  Visual Proof — Both DFAs {origSim.accepted ? 'ACCEPTED' : 'REJECTED'} ✓
+                </div>
+                <div style={{ fontFamily: 'JetBrains Mono,monospace', fontSize: 10, color: '#6E6E73' }}>
+                  Despite having fewer states, the minimized DFA reaches the same conclusion as the original — proving equivalence.
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    function PathChips({ sim, stepIdx, color }) {
+      if (!sim) return null;
+      const visible = stepIdx >= 0 ? sim.path.slice(0, stepIdx + 1) : [];
+      return (
+        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 4, marginTop: 10, minHeight: 32 }}>
+          {visible.length === 0 && <span style={{ fontFamily: 'JetBrains Mono,monospace', fontSize: 10, color: '#C7C7CC' }}>Path appears here…</span>}
+          {visible.map((step, i) => (
+            <React.Fragment key={i}>
+              {i > 0 && (
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
+                  <span style={{ fontFamily: 'JetBrains Mono,monospace', fontSize: 9, color: '#5E5CE6' }}>{step.sym}</span>
+                  <span style={{ fontFamily: 'JetBrains Mono,monospace', fontSize: 9, color: '#C7C7CC' }}>→</span>
+                </div>
+              )}
+              {step.undefined
+                ? <div className="sim-node dead-node" style={{ fontSize: '0.7rem', padding: '3px 8px' }}>∅</div>
+                : <div className={`sim-node ${i === visible.length - 1 ? 'active' : ''}`}
+                  style={{ fontSize: '0.7rem', padding: '3px 8px', borderColor: i === visible.length - 1 ? color : '#D2D2D7', color: i === visible.length - 1 ? color : '#6E6E73' }}>
+                  {step.state}
+                </div>
+              }
+            </React.Fragment>
+          ))}
+        </div>
+      );
+    }
+
+    /* ═══════════════════════════════
+       FEATURES SECTION
+    ═══════════════════════════════ */
+    const FEATURES = [
+      { icon: '∂', title: 'Table-Filling Algorithm', desc: 'Visualize the Myhill-Nerode table-filling method step by step. Watch each pair get marked as distinguishable in real time.', color: '#0071E3' },
+      { icon: '⊂', title: 'Force-Directed Graphs', desc: 'Drag states, stretch transitions like rubber bands. Physics-based layouts make DFA structure immediately intuitive.', color: '#5E5CE6' },
+      { icon: '▶', title: 'Synchronized Dual Sim', desc: 'Test any string on both DFAs at the same time — step by step — with a visual proof that they always agree.', color: '#30D158' },
+    ];
+
+    function FeaturesSection() {
+      const sectionRef = useRef(null);
+      const cardsRef = useRef([]);
+      useEffect(() => {
+        cardsRef.current.forEach((card, i) => {
+          if (!card) return;
+          gsap.fromTo(card, { opacity: 0, y: 50 + i * 10 }, { opacity: 1, y: 0, duration: .8, delay: i * .12, ease: 'power3.out', scrollTrigger: { trigger: card, start: 'top 88%', toggleActions: 'play none none reverse' } });
+          gsap.to(card, { y: -20 * (i * .5 + .4), ease: 'none', scrollTrigger: { trigger: sectionRef.current, start: 'top bottom', end: 'bottom top', scrub: 1.2 } });
+        });
+      }, []);
+      return (
+        <section ref={sectionRef} className="py-24 px-6 max-w-6xl mx-auto">
+          <div className="text-center mb-16">
+            <p className="font-mono text-xs text-[#6E6E73] uppercase tracking-widest mb-3">What's inside</p>
+            <h2 className="text-3xl font-bold text-[#1D1D1F] tracking-tight">Built for understanding automata theory</h2>
+          </div>
+          <div className="grid gap-6" style={{ gridTemplateColumns: 'repeat(3,1fr)' }}>
+            {FEATURES.map((f, i) => (
+              <div key={i} ref={el => cardsRef.current[i] = el}
+                className="feature-card bg-white rounded-2xl p-7 shadow-card border border-[#D2D2D7]"
+                style={{ borderTop: `3px solid ${f.color}`, opacity: 0 }}>
+                <div className="text-3xl mb-5 font-mono" style={{ color: f.color }}>{f.icon}</div>
+                <h3 className="text-base font-bold text-[#1D1D1F] mb-2">{f.title}</h3>
+                <p className="text-sm text-[#6E6E73] leading-relaxed">{f.desc}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+      );
+    }
+
+    /* ═══════════════════════════════
+       HERO SECTION
+    ═══════════════════════════════ */
+    function HeroSection({ onScrollToApp }) {
+      const heroRef = useRef(null), titleRef = useRef(null), subRef = useRef(null), badgeRef = useRef(null), btnsRef = useRef(null);
+      useEffect(() => {
+        const tl = gsap.timeline({ defaults: { ease: 'power3.out' } });
+        tl.fromTo(badgeRef.current, { opacity: 0, y: 10 }, { opacity: 1, y: 0, duration: .6 }, 0.1)
+          .fromTo(titleRef.current, { opacity: 0, y: 30 }, { opacity: 1, y: 0, duration: .9 }, 0.25)
+          .fromTo(subRef.current, { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: .8 }, 0.45)
+          .fromTo(btnsRef.current, { opacity: 0, y: 16 }, { opacity: 1, y: 0, duration: .7 }, 0.6);
+        gsap.to(heroRef.current, { opacity: 0, y: -30, scrollTrigger: { trigger: heroRef.current, start: 'center top', end: 'bottom top', scrub: 1 } });
+        gsap.utils.toArray('.scroll-reveal').forEach(el => {
+          gsap.fromTo(el, { opacity: 0, y: 24 }, { opacity: 1, y: 0, duration: .7, ease: 'power3.out', scrollTrigger: { trigger: el, start: 'top 86%', toggleActions: 'play none none reverse' } });
+        });
+      }, []);
+      return (
+        <section ref={heroRef} className="hero-gradient pt-28 pb-20 px-6 text-center relative overflow-hidden">
+          <div style={{ position: 'absolute', top: '10%', left: '8%', width: 320, height: 320, borderRadius: '50%', background: 'radial-gradient(circle, rgba(0,113,227,.07) 0%, transparent 70%)', pointerEvents: 'none' }} />
+          <div style={{ position: 'absolute', bottom: '15%', right: '6%', width: 240, height: 240, borderRadius: '50%', background: 'radial-gradient(circle, rgba(94,92,230,.07) 0%, transparent 70%)', pointerEvents: 'none' }} />
+          <div ref={badgeRef} style={{ opacity: 0 }} className="inline-flex items-center gap-2 font-mono text-xs bg-white border border-[#D2D2D7] rounded-full px-4 py-2 text-[#6E6E73] shadow-card mb-8">
+            <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#30D158', display: 'inline-block' }}></span>
+            Automata Theory Visualizer
+          </div>
+          <h1 ref={titleRef} style={{ opacity: 0 }} className="text-6xl font-extrabold tracking-tight text-[#1D1D1F] mb-6 leading-none">
+            DFA <span style={{ color: '#0071E3' }}>Minimizer</span>
+          </h1>
+          <p ref={subRef} style={{ opacity: 0 }} className="text-xl text-[#6E6E73] max-w-lg mx-auto mb-10 leading-relaxed font-light">
+            Visualize the Myhill-Nerode table-filling algorithm. Drag states, animate merges, and prove equivalence in real time.
+          </p>
+          <div ref={btnsRef} style={{ opacity: 0 }} className="flex items-center justify-center gap-3 flex-wrap">
+            <MagneticButton onClick={onScrollToApp} className="py-3 px-8 bg-[#0071E3] text-white font-semibold text-sm rounded-2xl shadow-btn hover:bg-[#0077ED] transition-colors cursor-pointer">
+              Start Visualizing →
+            </MagneticButton>
+            <a href="#features" className="py-3 px-8 border border-[#D2D2D7] bg-white text-[#1D1D1F] font-semibold text-sm rounded-2xl hover:border-[#0071E3] hover:text-[#0071E3] transition-colors no-underline" style={{ display: 'inline-block' }}>
+              Learn more
+            </a>
+          </div>
+        </section>
+      );
+    }
+
+    /* ═══════════════════════════════
+       TOAST
+    ═══════════════════════════════ */
+    function Toast({ name, desc, onClose }) {
+      useEffect(() => { const t = setTimeout(onClose, 3600); return () => clearTimeout(t); }, [onClose]);
+      return (
+        <div className="animate-toast-in" style={{ position: 'fixed', bottom: 28, left: '50%', transform: 'translateX(-50%)', background: '#fff', border: '1.5px solid #0071E3', borderRadius: 14, padding: '12px 22px', fontFamily: '"JetBrains Mono",monospace', fontSize: '0.76rem', color: '#0071E3', zIndex: 9999, boxShadow: '0 4px 24px rgba(0,0,0,.12)', maxWidth: 480, textAlign: 'center' }}>
+          <strong>{esc(name)}</strong><br />
+          <span style={{ color: '#6E6E73', fontSize: '0.68rem' }}>{esc(desc)}</span>
+        </div>
+      );
+    }
+
+    /* ═══════════════════════════════
+       THEME SELECTOR
+    ═══════════════════════════════ */
+    const THEMES = [
+      { id: 'apple', label: 'Classic Light', hex: '#0071E3', hover: '#0077ED', bg: '#F5F5F7', panel: '#fff', text: '#1D1D1F', muted: '#6E6E73', border: '#D2D2D7', shadow: '0 4px 24px rgba(0,0,0,0.06)' },
+      { id: 'dark', label: 'Midnight Dark', hex: '#33A8FF', hover: '#5ebaff', bg: '#090a0c', panel: '#16171b', text: '#F5F5F7', muted: '#8e8e93', border: '#2c2c35', shadow: '0 8px 32px rgba(0,0,0,0.5)' },
+      { id: 'matrix', label: 'Matrix Hacker', hex: '#30D158', hover: '#3add66', bg: '#050a06', panel: '#0a160d', text: '#a2fca2', muted: '#5a825a', border: '#17361d', shadow: '0 8px 32px rgba(48,209,88,0.08)' },
+      { id: 'purple', label: 'Neon Violet', hex: '#a668f5', hover: '#b882f7', bg: '#0b0814', panel: '#151029', text: '#f0ecfa', muted: '#8278a3', border: '#2d2552', shadow: '0 8px 32px rgba(166,104,245,0.12)' },
+      { id: 'cyberpunk', label: 'Cyber Pink', hex: '#FF2D55', hover: '#ff4c6d', bg: '#12050b', panel: '#1c0c14', text: '#fae3ec', muted: '#9e6783', border: '#421a2f', shadow: '0 8px 32px rgba(255,45,85,0.12)' },
+      { id: 'sepia', label: 'Vintage Sepia', hex: '#c47c0a', hover: '#da8a0b', bg: '#fdf6e3', panel: '#f0e6ce', text: '#594a38', muted: '#948371', border: '#d9cdb4', shadow: '0 6px 24px rgba(133,103,66,0.08)' }
+    ];
+
+    function ThemeSelector() {
+      const [isOpen, setIsOpen] = useState(false);
+      const [theme, setTheme] = useState(THEMES[0]);
+
+      useEffect(() => {
+        let styleEl = document.getElementById('dynamic-theme');
+        if (!styleEl) {
+          styleEl = document.createElement('style');
+          styleEl.id = 'dynamic-theme';
+          document.head.appendChild(styleEl);
+        }
+        if (theme.id === 'apple') {
+          styleEl.innerHTML = `
+            body, .app-body, .bg-white, .feature-card, .sim-track-card, .glass-sidebar, .glass-header, .dfa-table td, .mn-cell {
+              transition: background-color 0.5s ease, border-color 0.5s ease, box-shadow 0.5s ease !important;
+            }
+            * { transition: color 0.5s ease; }
+            .regex-input { caret-color: #0071E3 !important; }
+            .regex-operator { color: #5E5CE6 !important; }
+          `;
+        } else {
+          styleEl.innerHTML = `
+            body, .app-body, .bg-white, .feature-card, .sim-track-card, .glass-sidebar, .glass-header, .dfa-table td, .mn-cell {
+              transition: background-color 0.5s ease, border-color 0.5s ease, box-shadow 0.5s ease !important;
+            }
+            * { transition: color 0.5s ease; }
+            
+            /* Core Backgrounds & Text */
+            body, #root, .app-body { background-color: ${theme.bg} !important; color: ${theme.text} !important; }
+            .bg-white, .glass-sidebar, .feature-card, .sim-track-card, .export-modal, .bg-\\[\\#fff\\] { background-color: ${theme.panel} !important; }
+            .glass-header { background-color: ${theme.panel}aa !important; backdrop-filter: blur(16px) !important; -webkit-backdrop-filter: blur(16px) !important; }
+            .bg-\\[\\#F5F5F7\\] { background-color: ${theme.bg} !important; }
+            
+            /* Shadows for Cards & Header */
+            .shadow-card, .feature-card, .sim-track-card { box-shadow: ${theme.shadow} !important; }
+            .glass-header { box-shadow: 0 1px 12px ${theme.shadow.split('rgba')[1] ? 'rgba' + theme.shadow.split('rgba')[1] : 'rgba(0,0,0,0.1)'} !important; }
+            
+            /* Typography */
+            .text-\\[\\#1D1D1F\\] { color: ${theme.text} !important; }
+            .text-\\[\\#6E6E73\\] { color: ${theme.muted} !important; }
+            h1, h2, h3, p { color: ${theme.text} !important; }
+            
+            /* Overriding specific React inline styles */
+            [style*="color: #1D1D1F"], [style*="color: rgb(29, 29, 31)"], 
+            [style*="color: #1d1d1f"] { color: ${theme.text} !important; }
+            [style*="color: #6E6E73"], [style*="color: rgb(110, 110, 115)"],
+            [style*="color: #6e6e73"] { color: ${theme.muted} !important; }
+            [style*="background: #F5F5F7"], [style*="background: rgb(245, 245, 247)"],
+            [style*="background: #f5f5f7"] { background-color: ${theme.bg} !important; }
+            [style*="background: #fff"], [style*="background: rgb(255, 255, 255)"],
+            [style*="background-color: white"] { background-color: ${theme.panel} !important; }
+            
+            /* Borders */
+            .border-\\[\\#D2D2D7\\] { border-color: ${theme.border} !important; }
+            [style*="border-color: #D2D2D7"], [style*="border-color: rgb(210, 210, 215)"],
+            [style*="border: 1px solid #D2D2D7"], [style*="border: 1.5px solid #D2D2D7"] { border-color: ${theme.border} !important; }
+            .mono-input { background: ${theme.bg} !important; color: ${theme.text} !important; border-color: ${theme.border} !important; transition: border-color 0.2s !important; }
+            .mono-input:focus { border-color: ${theme.hex} !important; box-shadow: 0 0 0 3px ${theme.hex}22 !important; outline: none; }
+            
+            /* Regex Input Customizations */
+            .regex-input { caret-color: ${theme.hex} !important; }
+            .regex-operator { color: ${theme.hex} !important; }
+            
+            /* Tables & Specific Components */
+            .dfa-table th, .mn-table thead th { background: ${theme.bg} !important; color: ${theme.muted} !important; border-color: ${theme.border} !important; }
+            .dfa-table td { background: ${theme.panel} !important; color: ${theme.text} !important; border-color: ${theme.border} !important; }
+            .dfa-table tr:hover td { background: ${theme.bg} !important; }
+            .mn-cell { background: ${theme.bg} !important; border-color: ${theme.border} !important; color: ${theme.text} !important; }
+            .mn-cell.empty { background: transparent !important; border: none !important; }
+            .sim-node { background: ${theme.bg} !important; color: ${theme.text} !important; border-color: ${theme.border} !important; }
+            .stat-box { background: ${theme.bg} !important; border-color: ${theme.border} !important; }
+            .log-entry { background: ${theme.bg} !important; border-color: ${theme.border} !important; color: ${theme.text} !important; }
+            
+            /* Primary Brand Color Replacement */
+            .text-\\[\\#0071E3\\] { color: ${theme.hex} !important; }
+            .bg-\\[\\#0071E3\\] { background-color: ${theme.hex} !important; }
+            .border-\\[\\#0071E3\\] { border-color: ${theme.hex} !important; }
+            .shadow-btn { box-shadow: 0 4px 12px ${theme.hex}33 !important; }
+            .hover\\:bg-\\[\\#0077ED\\]:hover { background-color: ${theme.hover} !important; }
+            .hover\\:text-\\[\\#0071E3\\]:hover { color: ${theme.hex} !important; }
+            .hover\\:border-\\[\\#0071E3\\]:hover { border-color: ${theme.hex} !important; }
+            [style*="color: #0071E3"], [style*="color: rgb(0, 113, 227)"] { color: ${theme.hex} !important; }
+            [style*="background: #0071E3"], [style*="background: rgb(0, 113, 227)"] { background: ${theme.hex} !important; }
+            [style*="border-color: #0071E3"], [style*="border-color: rgb(0, 113, 227)"] { border-color: ${theme.hex} !important; }
+            [style*="borderTop: 3px solid #0071E3"] { border-top-color: ${theme.hex} !important; }
+            
+            /* D3 Graph SVG */
+            circle.main-circle { fill: ${theme.panel} !important; stroke: ${theme.border} !important; }
+            circle.accept-ring { stroke: ${theme.muted} !important; }
+            text { fill: ${theme.text} !important; }
+            .edge-path { stroke: ${theme.muted} !important; }
+            .start-line { stroke: ${theme.text} !important; }
+            .edge-label { fill: ${theme.text} !important; }
+            .edge-label-bg { fill: ${theme.bg} !important; }
+            
+            /* Custom Hero Gradient */
+            .hero-gradient { background: radial-gradient(ellipse 80% 60% at 50% -10%, ${theme.hex}1a 0%, transparent 70%), ${theme.bg} !important; transition: background 0.5s ease; }
+          `;
+        }
+      }, [theme]);
+
+      return (
+        <div style={{ position: 'absolute', top: 24, right: 26, zIndex: 9999 }}>
+          <div style={{ position: 'relative' }}>
+            <button onClick={() => setIsOpen(!isOpen)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px',
+                background: theme.panel, backdropFilter: 'blur(10px)',
+                border: '1px solid', borderColor: theme.border, borderRadius: 20, cursor: 'pointer',
+                fontFamily: 'JetBrains Mono,monospace', fontSize: 12, fontWeight: 600,
+                color: theme.text, boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
+                transition: 'all 0.2s'
+              }}>
+              <span style={{ width: 12, height: 12, borderRadius: '50%', background: theme.hex }}></span>
+              Theme
+            </button>
+            {isOpen && (
+              <div style={{
+                position: 'absolute', top: '100%', right: 0, marginTop: 8,
+                background: theme.panel, border: '1px solid', borderColor: theme.border, borderRadius: 16,
+                padding: 6, boxShadow: '0 12px 40px rgba(0,0,0,0.2)', width: 165,
+                display: 'flex', flexDirection: 'column', gap: 2,
+                animation: 'fadeUp 0.15s ease-out forwards', color: theme.text
+              }}>
+                {THEMES.map(t => (
+                  <button key={t.id} onClick={() => { setTheme(t); setIsOpen(false); }}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px',
+                      background: theme.id === t.id ? theme.bg : 'transparent', border: 'none',
+                      borderRadius: 10, cursor: 'pointer', textAlign: 'left',
+                      fontFamily: 'JetBrains Mono,monospace', fontSize: 11, fontWeight: theme.id === t.id ? 700 : 500,
+                      color: theme.id === t.id ? theme.text : theme.muted, width: '100%', transition: 'all 0.1s'
+                    }}
+                    onMouseEnter={e => { if (theme.id !== t.id) e.currentTarget.style.background = theme.bg; }}
+                    onMouseLeave={e => { if (theme.id !== t.id) e.currentTarget.style.background = 'transparent'; }}>
+                    <span style={{ width: 10, height: 10, borderRadius: '50%', background: t.hex }}></span>
+                    {t.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    /* ═══════════════════════════════
+       MAIN APP
+    ═══════════════════════════════ */
+    function App() {
+      const [activeTab, setActiveTab] = useState('builder');
+      const [tabKey, setTabKey] = useState(0);
+      const [currentDFA, setCurrentDFA] = useState(null);
+      const [minResult, setMinResult] = useState(null);
+      const [toast, setToast] = useState(null);
+      const [showExport, setShowExport] = useState(false);
+      const appRef = useRef(null);
+
+      const switchTab = name => { if (name === activeTab) return; setActiveTab(name); setTabKey(k => k + 1); };
+      const showToast = (name, desc) => setToast({ name, desc, key: Date.now() });
+
+      const TAB_CFG = [
+        { id: 'builder', label: '① Build DFA' },
+        { id: 'visualizer', label: '② Minimize' },
+        { id: 'simulate', label: '③ Simulate' },
+      ];
+
+      return (
+        <div style={{ position: 'relative' }}>
+          <ThemeSelector />
+          <HeroSection onScrollToApp={() => appRef.current?.scrollIntoView({ behavior: 'smooth' })} />
+          <div id="features"><FeaturesSection /></div>
+
+          <div ref={appRef} className="scroll-reveal" style={{ opacity: 0 }}>
+            {/* Sticky Header */}
+            <header className="glass-header sticky top-0 z-50 border-b border-[#D2D2D7]" style={{ boxShadow: '0 1px 12px rgba(0,0,0,0.05)' }}>
+              <div style={{ maxWidth: 1320, margin: '0 auto', padding: '0 24px' }}>
+                <div className="flex items-center justify-between gap-4 flex-wrap py-3.5">
+                  <div className="flex items-center gap-3">
+                    <span className="font-mono text-xl text-[#0071E3]" style={{ animation: 'pulse 3s ease-in-out infinite' }}>∂</span>
+                    <div>
+                      <div className="font-mono text-sm font-bold text-[#0071E3] leading-tight">DFA Minimizer</div>
+                      <div className="font-mono text-[10px] text-[#6E6E73]">Myhill-Nerode Partition Visualizer</div>
+                    </div>
+                  </div>
+                  <nav className="flex items-center gap-1">
+                    {TAB_CFG.map(tab => (
+                      <button key={tab.id} onClick={() => switchTab(tab.id)}
+                        className={`relative font-mono text-xs px-5 py-2.5 rounded-xl border transition-all cursor-pointer ${activeTab === tab.id ? 'border-[#0071E3] bg-[rgba(0,113,227,.07)] text-[#0071E3] font-semibold' : 'border-transparent bg-transparent text-[#6E6E73] hover:bg-[#F5F5F7] hover:text-[#1D1D1F]'}`}>
+                        {tab.label}
+                      </button>
+                    ))}
+                  </nav>
+                </div>
+              </div>
+            </header>
+
+            {/* Main layout with sidebar */}
+            <main style={{ maxWidth: 1320, margin: '0 auto', padding: '28px 24px 100px', display: 'flex', gap: 22, alignItems: 'start' }} className="app-body">
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div key={`${activeTab}-${tabKey}`}>
+                  {activeTab === 'builder' && <BuildTab key="b" onDFABuilt={d => { setCurrentDFA(d); setMinResult(null); }} showToast={showToast} initDFA={currentDFA} />}
+                  {activeTab === 'visualizer' && <MinimizeTab key="v" dfa={currentDFA} onMinDone={r => setMinResult(r)} />}
+                  {activeTab === 'simulate' && <SimulateTab key="s" dfa={currentDFA} minResult={minResult} />}
+                </div>
+              </div>
+              <GlassSidebar dfa={currentDFA} minResult={minResult} onExport={() => setShowExport(true)} />
+            </main>
+          </div>
+
+          {showExport && <ExportModal dfa={currentDFA} minResult={minResult} onClose={() => setShowExport(false)} />}
+          {toast && <Toast key={toast.key} name={toast.name} desc={toast.desc} onClose={() => setToast(null)} />}
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+
+  <style>
+    @keyframes pulse {
+
+      0%,
+      100% {
+        opacity: 1
+      }
+
+      50% {
+        opacity: .45
+      }
+    }
+
+    @media(max-width:800px) {
+
+      .grid-2col,
+      .grid-builder {
+        grid-template-columns: 1fr !important
+      }
+    }
+
+    @keyframes groupCardIn {
+      0% {
+        opacity: 0;
+        transform: translateY(14px) scale(0.96);
+      }
+
+      100% {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+      }
+    }
+
+    .group-card {
+      animation: groupCardIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+      opacity: 0;
+    }
+
+    @keyframes pairPopIn {
+      0% {
+        opacity: 0;
+        transform: scale(0.7);
+      }
+
+      70% {
+        transform: scale(1.08);
+      }
+
+      100% {
+        opacity: 1;
+        transform: scale(1);
+      }
+    }
+
+    .pair-chip {
+      animation: pairPopIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+      opacity: 0;
+    }
+
+    /* ── Giggle Physics ─────────────────────────────────────────── */
+
+    /* Spring press: squish down → overshoot → settle */
+    @keyframes springPress {
+      0%   { transform: scale(1); }
+      30%  { transform: scale(0.91) rotate(-0.6deg); }
+      55%  { transform: scale(1.055) rotate(0.4deg); }
+      72%  { transform: scale(0.978) rotate(-0.2deg); }
+      86%  { transform: scale(1.013); }
+      100% { transform: scale(1) rotate(0deg); }
+    }
+
+    /* Card hover giggle: gentle elastic rock */
+    @keyframes cardGiggle {
+      0%   { transform: rotate(0deg) scale(1); }
+      15%  { transform: rotate(-1.2deg) scale(1.012); }
+      35%  { transform: rotate(1.0deg) scale(1.018); }
+      52%  { transform: rotate(-0.7deg) scale(1.012); }
+      68%  { transform: rotate(0.5deg) scale(1.008); }
+      82%  { transform: rotate(-0.2deg) scale(1.003); }
+      100% { transform: rotate(0deg) scale(1); }
+    }
+
+    /* Logo perpetual bob */
+    @keyframes logoBob {
+      0%, 100% { transform: translateY(0) scale(1) rotate(0deg); }
+      25%  { transform: translateY(-3px) scale(1.08) rotate(4deg); }
+      50%  { transform: translateY(0px) scale(1.04) rotate(0deg); }
+      75%  { transform: translateY(-2px) scale(1.06) rotate(-3deg); }
+    }
+
+    /* MN cell bounce when newly marked */
+    @keyframes cellBounce {
+      0%   { transform: scale(1); }
+      25%  { transform: scale(1.32) rotate(6deg); }
+      50%  { transform: scale(0.92) rotate(-3deg); }
+      70%  { transform: scale(1.10) rotate(2deg); }
+      85%  { transform: scale(0.97); }
+      100% { transform: scale(1.18); } /* ends at .mn-cell.checking scale */
+    }
+
+    /* Stat-box pop in on mount */
+    @keyframes statBounceIn {
+      0%   { opacity: 0; transform: scale(0.6) translateY(12px); }
+      55%  { transform: scale(1.08) translateY(-4px); }
+      78%  { transform: scale(0.96) translateY(1px); }
+      100% { opacity: 1; transform: scale(1) translateY(0); }
+    }
+
+    /* Chip entrance: extra springy */
+    @keyframes chipSpring {
+      0%   { opacity: 0; transform: scale(0.5) rotate(-8deg); }
+      55%  { transform: scale(1.15) rotate(4deg); }
+      75%  { transform: scale(0.94) rotate(-2deg); }
+      90%  { transform: scale(1.04) rotate(1deg); }
+      100% { opacity: 1; transform: scale(1) rotate(0deg); }
+    }
+
+    /* Toast shake-in from bottom */
+    @keyframes toastBounce {
+      0%   { opacity: 0; transform: translateX(-50%) translateY(28px) scale(0.88); }
+      55%  { transform: translateX(-50%) translateY(-6px) scale(1.04); }
+      75%  { transform: translateX(-50%) translateY(3px) scale(0.98); }
+      100% { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
+    }
+
+    /* Apply classes */
+    .giggle-btn-press {
+      animation: springPress 0.52s cubic-bezier(0.34, 1.56, 0.64, 1) forwards !important;
+    }
+
+    .giggle-card-hover {
+      animation: cardGiggle 0.55s cubic-bezier(0.34, 1.2, 0.64, 1) forwards !important;
+    }
+
+    .giggle-logo {
+      animation: logoBob 2.8s cubic-bezier(0.45, 0, 0.55, 1) infinite !important;
+      display: inline-block;
+      cursor: default;
+    }
+
+    .giggle-stat {
+      animation: statBounceIn 0.55s cubic-bezier(0.34, 1.56, 0.64, 1) forwards !important;
+    }
+
+    /* Override pair-chip entrance with springier version */
+    .pair-chip {
+      animation: chipSpring 0.38s cubic-bezier(0.34, 1.56, 0.64, 1) forwards !important;
+    }
+
+    /* Override toast with bouncier version */
+    .animate-toast-in {
+      animation: toastBounce 0.52s cubic-bezier(0.34, 1.56, 0.64, 1) forwards !important;
+    }
+
+    /* Smooth transform origin for buttons */
+    button {
+      transform-origin: center center;
+    }
+
+    /* Feature cards: cursor feedback */
+    .feature-card {
+      cursor: default;
+      transform-origin: center bottom;
+    }
+
+    /* Stat boxes get the bounce-in by default */
+    .stat-box {
+      animation: statBounceIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+    }
+  </style>
+
+  <!-- ── Giggle Physics Engine ──────────────────────────────────── -->
+  <script>
+    (function () {
+      // Spring-press on ALL buttons
+      function attachButtonGiggle(btn) {
+        if (btn.__giggled) return;
+        btn.__giggled = true;
+
+        btn.addEventListener('pointerdown', function (e) {
+          this.classList.remove('giggle-btn-press');
+          // Force reflow to restart animation
+          void this.offsetWidth;
+          this.classList.add('giggle-btn-press');
+        });
+
+        btn.addEventListener('animationend', function () {
+          this.classList.remove('giggle-btn-press');
+        });
+      }
+
+      // Card giggle on hover
+      function attachCardGiggle(card) {
+        if (card.__giggled) return;
+        card.__giggled = true;
+
+        card.addEventListener('mouseenter', function () {
+          this.classList.remove('giggle-card-hover');
+          void this.offsetWidth;
+          this.classList.add('giggle-card-hover');
+        });
+
+        card.addEventListener('animationend', function (e) {
+          if (e.animationName === 'cardGiggle') {
+            this.classList.remove('giggle-card-hover');
+          }
+        });
+      }
+
+      // Logo bob
+      function attachLogoBob(el) {
+        if (!el || el.__giggled) return;
+        el.__giggled = true;
+        el.classList.add('giggle-logo');
+      }
+
+      // MutationObserver to catch React-rendered DOM
+      const observer = new MutationObserver(function () {
+        // Buttons
+        document.querySelectorAll('button:not([__giggled])').forEach(attachButtonGiggle);
+
+        // Feature cards
+        document.querySelectorAll('.feature-card:not([__giggled])').forEach(attachCardGiggle);
+
+        // Stat boxes: re-trigger bounce on value changes
+        document.querySelectorAll('.stat-box').forEach(function (box) {
+          if (!box.__giggled) {
+            box.__giggled = true;
+            box.style.animationDelay = (Math.random() * 0.12) + 's';
+          }
+        });
+
+        // Logo ∂
+        const logos = document.querySelectorAll('.font-mono.text-xl');
+        logos.forEach(function (el) {
+          if (el.textContent.trim() === '∂') attachLogoBob(el);
+        });
+      });
+
+      observer.observe(document.body, { childList: true, subtree: true });
+
+      // Initial pass after short delay for React hydration
+      window.addEventListener('DOMContentLoaded', function () {
+        setTimeout(function () {
+          document.querySelectorAll('button').forEach(attachButtonGiggle);
+          document.querySelectorAll('.feature-card').forEach(attachCardGiggle);
+          document.querySelectorAll('.font-mono.text-xl').forEach(function (el) {
+            if (el.textContent.trim() === '∂') attachLogoBob(el);
+          });
+        }, 300);
+      });
+
+      // Extra: stagger stat-box animations on visibility
+      const statObserver = new IntersectionObserver(function (entries) {
+        entries.forEach(function (entry, i) {
+          if (entry.isIntersecting) {
+            var el = entry.target;
+            el.style.animation = 'none';
+            void el.offsetWidth;
+            el.style.animation = 'statBounceIn 0.55s ' + (i * 0.07) + 's cubic-bezier(0.34,1.56,0.64,1) both';
+            statObserver.unobserve(el);
+          }
+        });
+      }, { threshold: 0.3 });
+
+      // Observe stat boxes as they appear
+      new MutationObserver(function () {
+        document.querySelectorAll('.stat-box:not([data-observed])').forEach(function (el) {
+          el.dataset.observed = '1';
+          statObserver.observe(el);
+        });
+      }).observe(document.body, { childList: true, subtree: true });
+
+    })();
+  </script>
+</body>
+
+</html>
